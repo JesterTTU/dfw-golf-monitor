@@ -1,45 +1,63 @@
+name: Tee Time Monitor
+
 on:
- permissions:
-   contents: write
   schedule:
     - cron: '0 */2 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   monitor:
     runs-on: ubuntu-latest
+
     steps:
       - name: Restore tee_times.db from cache
         uses: actions/cache@v4
         with:
-          path: tee-time-monitor/tee_times.db
+          path: tee_times.db
           key: tee-times-db-${{ github.run_id }}
           restore-keys: |
             tee-times-db-
+
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      - run: pip install -r requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
       - name: Prepare config.json
         run: cp config.example.json config.json
+
       - name: Run tee-time monitor
         run: python monitor.py
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-      - run: python export_dashboard.py
+
+      - name: Export price history CSV
+        run: python export_csv.py
+
       - name: Commit price_history.csv to repo
         run: |
           git config user.name  "Golf Monitor Bot"
           git config user.email "bot@dfw-golf-monitor"
           git add price_history.csv
           git diff --cached --quiet || \
-            git commit -m "data: price history update $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git commit -m "data: price history $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-artifact@v4
+
+      - name: Export dashboard
+        run: python export_dashboard.py
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-artifact@v4
         with:
           name: dashboard-${{ github.run_number }}
           path: |
