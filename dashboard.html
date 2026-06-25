@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arlington Golf Tee-Time Monitor</title>
+  <style>
+    /* ── Reset / Base ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    a { color: #63b3ed; }
+
+    /* ── Header ────────────────────────────────────────────────── */
+    header {
+      display: flex; flex-wrap: wrap; gap: 1rem;
+      align-items: flex-end; justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; }
+    header h1 span { color: #68d391; }
+    #meta { font-size: 0.78rem; color: #718096; line-height: 1.8; }
+
+    /* ── Controls ──────────────────────────────────────────────── */
+    #controls {
+      display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+      margin-bottom: 1rem;
+      background: #1a1d27; border-radius: 8px; padding: 0.9rem 1rem;
+    }
+    #controls label { font-size: 0.82rem; color: #a0aec0; }
+    #controls select,
+    #controls input[type="date"],
+    #controls input[type="text"] {
+      background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;
+      border-radius: 5px; padding: 0.35rem 0.6rem; font-size: 0.82rem; cursor: pointer;
+    }
+    #controls select:focus,
+    #controls input:focus { outline: 2px solid #63b3ed; }
+    .toggle-btn {
+      background: #2d3748; border: 1px solid #4a5568; border-radius: 5px;
+      color: #e2e8f0; padding: 0.35rem 0.8rem; cursor: pointer; font-size: 0.82rem;
+      transition: background 0.15s;
+    }
+    .toggle-btn.active { background: #276749; border-color: #68d391; color: #68d391; }
+    #count-badge {
+      margin-left: auto; font-size: 0.78rem; color: #718096;
+    }
+
+    /* ── Thresholds strip ───────────────────────────────────────── */
+    #thresholds {
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
+      margin-bottom: 1rem; font-size: 0.78rem;
+    }
+    .thresh-chip {
+      background: #1a1d27; border: 1px solid #2d3748; border-radius: 99px;
+      padding: 0.25rem 0.7rem; color: #a0aec0;
+    }
+    .thresh-chip strong { color: #68d391; }
+
+    /* ── Table wrapper ─────────────────────────────────────────── */
+    #table-wrap {
+      overflow-x: auto; border-radius: 8px;
+      border: 1px solid #2d3748;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead th {
+      background: #1a1d27; padding: 0.7rem 0.9rem;
+      text-align: left; font-weight: 600; white-space: nowrap;
+      color: #a0aec0; cursor: pointer; user-select: none;
+      position: sticky; top: 0;
+    }
+    thead th:hover { color: #e2e8f0; }
+    thead th .sort-icon { margin-left: 4px; opacity: 0.4; }
+    thead th.asc  .sort-icon::after { content: " ▲"; opacity: 1; }
+    thead th.desc .sort-icon::after { content: " ▼"; opacity: 1; }
+    tbody tr { border-top: 1px solid #2d3748; transition: background 0.1s; }
+    tbody tr:hover { background: #1e2433; }
+    td { padding: 0.6rem 0.9rem; white-space: nowrap; }
+
+    /* ── Row colour coding ─────────────────────────────────────── */
+    tr.deal    td:first-child { border-left: 3px solid #68d391; }
+    tr.normal  td:first-child { border-left: 3px solid #ecc94b; }
+    tr.pricey  td:first-child { border-left: 3px solid #718096; }
+
+    .badge-deal    { background: #22543d; color: #68d391; border-radius: 4px; padding: 2px 7px; font-size: 0.75rem; }
+    .badge-normal  { background: #5f4a00; color: #ecc94b; border-radius: 4px; padding: 2px 7px; font-size: 0.75rem; }
+    .badge-pricey  { background: #2d3748; color: #718096; border-radius: 4px; padding: 2px 7px; font-size: 0.75rem; }
+    .flag          { color: #fc8181; font-size: 0.8rem; }
+
+    /* ── Empty / loading states ────────────────────────────────── */
+    #loading, #error, #empty {
+      text-align: center; padding: 3rem; color: #718096; font-size: 0.9rem;
+    }
+    #error { color: #fc8181; }
+
+    /* ── Responsive ────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      body { padding: 0.75rem; }
+      header h1 { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⛳ Arlington Golf <span>Tee-Time Monitor</span></h1>
+    <div id="meta">Loading data…</div>
+  </div>
+  <div style="font-size:0.78rem; color:#4a5568;">
+    <a href="https://city-of-arlington.book.teeitup.com" target="_blank" rel="noopener">
+      Book on TeeItUp ↗
+    </a>
+  </div>
+</header>
+
+<div id="thresholds"></div>
+
+<div id="controls">
+  <label>
+    Course&nbsp;
+    <select id="filter-course">
+      <option value="">All courses</option>
+    </select>
+  </label>
+
+  <label>
+    From&nbsp;
+    <input type="date" id="filter-from" />
+  </label>
+
+  <label>
+    To&nbsp;
+    <input type="date" id="filter-to" />
+  </label>
+
+  <label>
+    Search&nbsp;
+    <input type="text" id="filter-search" placeholder="time, price…" style="width:110px" />
+  </label>
+
+  <button class="toggle-btn" id="toggle-deals">⚡ Deals only</button>
+
+  <span id="count-badge"></span>
+</div>
+
+<div id="table-wrap">
+  <div id="loading">Loading dashboard_data.json…</div>
+  <div id="error"  style="display:none"></div>
+  <div id="empty"  style="display:none">No rows match the current filters.</div>
+  <table id="main-table" style="display:none">
+    <thead>
+      <tr>
+        <th data-col="course_name">Course<span class="sort-icon"></span></th>
+        <th data-col="tee_date">Date<span class="sort-icon"></span></th>
+        <th data-col="tee_time">Time<span class="sort-icon"></span></th>
+        <th data-col="price">Price<span class="sort-icon"></span></th>
+        <th data-col="holes">Holes<span class="sort-icon"></span></th>
+        <th data-col="players_available">Spots<span class="sort-icon"></span></th>
+        <th data-col="status">Status<span class="sort-icon"></span></th>
+        <th data-col="flagged">Alerted<span class="sort-icon"></span></th>
+        <th data-col="fetched_at">Fetched<span class="sort-icon"></span></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+// ────────────────────────────────────────────────────────────────
+// Configuration
+// ────────────────────────────────────────────────────────────────
+const DATA_FILE   = "dashboard_data.json";
+const AUTO_RELOAD = 120; // seconds; set 0 to disable
+
+// ────────────────────────────────────────────────────────────────
+// State
+// ────────────────────────────────────────────────────────────────
+let allRows     = [];
+let thresholds  = {};
+let sortCol     = "tee_date";
+let sortDir     = "asc";   // "asc" | "desc"
+let dealsOnly   = false;
+
+// ────────────────────────────────────────────────────────────────
+// Threshold helpers (mirror Python logic)
+// ────────────────────────────────────────────────────────────────
+function getThreshold(dateStr, timeStr) {
+  const hour = parseInt(timeStr.slice(0, 2), 10);
+  const min  = parseInt(timeStr.slice(3, 5), 10);
+  const dow  = new Date(dateStr + "T12:00:00").getDay(); // 0=Sun,6=Sat
+  const isSuperTwilight = hour > 17 || (hour === 17 && min >= 30);
+  const isTwilight      = hour >= 16;
+  const isWeekend       = dow === 0 || dow === 6;
+  const isFriday        = dow === 5;
+
+  if (isSuperTwilight && thresholds.super_twilight != null) return thresholds.super_twilight;
+  if (isTwilight)     return thresholds.twilight_any ?? 999;
+  if (isWeekend)      return thresholds.weekend      ?? 999;
+  if (isFriday)       return thresholds.friday       ?? 999;
+  return thresholds.weekday ?? 999;
+}
+
+function rowStatus(row) {
+  if (row.price == null) return "unknown";
+  const thresh = getThreshold(row.tee_date, row.tee_time);
+  if (row.price < thresh) return "deal";
+  if (row.price < thresh * 1.3) return "normal";
+  return "pricey";
+}
+
+// ────────────────────────────────────────────────────────────────
+// Formatting helpers
+// ────────────────────────────────────────────────────────────────
+function fmtDate(d) {
+  // YYYY-MM-DD → "Mon Jun 23"
+  try {
+    return new Date(d + "T12:00:00")
+      .toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" });
+  } catch { return d; }
+}
+
+function fmtTime(t) {
+  // "14:00" → "2:00 PM"
+  try {
+    const [h, m] = t.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hh   = h % 12 || 12;
+    return `${hh}:${String(m).padStart(2,"0")} ${ampm}`;
+  } catch { return t; }
+}
+
+function fmtFetched(ts) {
+  // ISO timestamp → "Jun 23, 2:15 PM"
+  try {
+    return new Date(ts).toLocaleString("en-US", {
+      month:"short", day:"numeric", hour:"numeric", minute:"2-digit"
+    });
+  } catch { return ts; }
+}
+
+// ────────────────────────────────────────────────────────────────
+// Render
+// ────────────────────────────────────────────────────────────────
+function getFilteredSorted() {
+  const course  = document.getElementById("filter-course").value;
+  const fromVal = document.getElementById("filter-from").value;
+  const toVal   = document.getElementById("filter-to").value;
+  const search  = document.getElementById("filter-search").value.toLowerCase();
+
+  let rows = allRows.filter(r => {
+    if (course && r.course_name !== course) return false;
+    if (fromVal && r.tee_date < fromVal)    return false;
+    if (toVal   && r.tee_date > toVal)      return false;
+    if (dealsOnly && rowStatus(r) !== "deal") return false;
+    if (search) {
+      const haystack = [
+        r.course_name, r.tee_date, r.tee_time,
+        r.price != null ? "$" + r.price : "", String(r.holes ?? "")
+      ].join(" ").toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  rows.sort((a, b) => {
+    let va = a[sortCol] ?? "";
+    let vb = b[sortCol] ?? "";
+    if (sortCol === "status") { va = rowStatus(a); vb = rowStatus(b); }
+    if (typeof va === "number" && typeof vb === "number") {
+      return sortDir === "asc" ? va - vb : vb - va;
+    }
+    va = String(va); vb = String(vb);
+    return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+
+  return rows;
+}
+
+function render() {
+  const rows  = getFilteredSorted();
+  const tbody = document.getElementById("tbody");
+  const table = document.getElementById("main-table");
+  const empty = document.getElementById("empty");
+
+  tbody.innerHTML = "";
+
+  document.getElementById("count-badge").textContent =
+    `${rows.length} row${rows.length !== 1 ? "s" : ""}`;
+
+  if (rows.length === 0) {
+    table.style.display = "none";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  table.style.display = "table";
+
+  for (const r of rows) {
+    const status  = rowStatus(r);
+    const thresh  = getThreshold(r.tee_date, r.tee_time);
+    const tr      = document.createElement("tr");
+    tr.className  = status;
+
+    const badgeHTML =
+      status === "deal"   ? `<span class="badge-deal">Deal</span>` :
+      status === "normal" ? `<span class="badge-normal">Normal</span>` :
+                            `<span class="badge-pricey">Pricey</span>`;
+
+    const flagHTML = r.flagged ? `<span class="flag" title="Alert was fired">🔔 Yes</span>` : "—";
+
+    const priceHTML = r.price != null
+      ? `<strong>$${r.price.toFixed(2)}</strong>` + (thresh < 999
+          ? ` <span style="font-size:0.72rem;color:#718096">/ $${thresh}</span>` : "")
+      : "—";
+
+    tr.innerHTML = `
+      <td>${r.course_name ?? "—"}</td>
+      <td>${fmtDate(r.tee_date)}</td>
+      <td>${fmtTime(r.tee_time)}</td>
+      <td>${priceHTML}</td>
+      <td>${r.holes ?? "—"}</td>
+      <td>${r.players_available ?? "—"}</td>
+      <td>${badgeHTML}</td>
+      <td>${flagHTML}</td>
+      <td style="color:#718096;font-size:0.75rem">${fmtFetched(r.fetched_at)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// Column sort
+// ────────────────────────────────────────────────────────────────
+document.querySelectorAll("thead th[data-col]").forEach(th => {
+  th.addEventListener("click", () => {
+    const col = th.dataset.col;
+    if (sortCol === col) {
+      sortDir = sortDir === "asc" ? "desc" : "asc";
+    } else {
+      sortCol = col; sortDir = "asc";
+    }
+    document.querySelectorAll("thead th").forEach(h => h.classList.remove("asc","desc"));
+    th.classList.add(sortDir);
+    render();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────
+// Controls
+// ────────────────────────────────────────────────────────────────
+document.getElementById("filter-course").addEventListener("change", render);
+document.getElementById("filter-from").addEventListener("change", render);
+document.getElementById("filter-to").addEventListener("change", render);
+document.getElementById("filter-search").addEventListener("input", render);
+document.getElementById("toggle-deals").addEventListener("click", function() {
+  dealsOnly = !dealsOnly;
+  this.classList.toggle("active", dealsOnly);
+  render();
+});
+
+// ────────────────────────────────────────────────────────────────
+// Threshold chips
+// ────────────────────────────────────────────────────────────────
+function renderThresholds() {
+  const labels = {
+    weekday:       "Weekday",
+    friday:        "Friday",
+    weekend:       "Weekend",
+    twilight_any:  "Twilight (4 PM+)",
+    super_twilight:"Super Twilight (5:30 PM+)",
+  };
+  const el = document.getElementById("thresholds");
+  el.innerHTML = Object.entries(thresholds)
+    .filter(([,v]) => v !== 999 && v != null)
+    .map(([k, v]) =>
+      `<span class="thresh-chip">${labels[k] ?? k}: deal &lt; <strong>$${v}</strong></span>`
+    ).join("");
+}
+
+// ────────────────────────────────────────────────────────────────
+// Data loading
+// ────────────────────────────────────────────────────────────────
+function populateCourseFilter(rows) {
+  const sel = document.getElementById("filter-course");
+  const names = [...new Set(rows.map(r => r.course_name).filter(Boolean))].sort();
+  names.forEach(n => {
+    const opt = document.createElement("option");
+    opt.value = n; opt.textContent = n;
+    sel.appendChild(opt);
+  });
+}
+
+function setDefaultDateRange(rows) {
+  if (!rows.length) return;
+  const dates = rows.map(r => r.tee_date).sort();
+  document.getElementById("filter-from").value = dates[0];
+  document.getElementById("filter-to").value   = dates[dates.length - 1];
+}
+
+async function loadData() {
+  try {
+    const resp = await fetch(DATA_FILE + "?t=" + Date.now());
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    thresholds = data.thresholds ?? {};
+    allRows    = data.tee_times  ?? [];
+
+    // Update meta bar
+    const lastFetched = data.last_fetched
+      ? new Date(data.last_fetched).toLocaleString("en-US", {
+          weekday:"short", month:"short", day:"numeric",
+          hour:"numeric", minute:"2-digit", timeZoneName:"short"
+        })
+      : "unknown";
+    const exported = data.exported_at
+      ? new Date(data.exported_at).toLocaleString("en-US", {
+          month:"short", day:"numeric", hour:"numeric", minute:"2-digit"
+        })
+      : "—";
+
+    document.getElementById("meta").innerHTML =
+      `Last API poll: <strong>${lastFetched}</strong>&nbsp;&nbsp;|&nbsp;&nbsp;` +
+      `Dashboard exported: ${exported}&nbsp;&nbsp;|&nbsp;&nbsp;` +
+      `${allRows.length} total rows`;
+
+    document.getElementById("loading").style.display = "none";
+    renderThresholds();
+    populateCourseFilter(allRows);
+    setDefaultDateRange(allRows);
+    render();
+
+  } catch (err) {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("error").style.display   = "block";
+    document.getElementById("error").textContent =
+      `Failed to load ${DATA_FILE}: ${err.message}. ` +
+      `Run "python export_dashboard.py" first, then serve this folder ` +
+      `with "python -m http.server 8080" and open http://localhost:8080/dashboard.html`;
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// Auto-reload
+// ────────────────────────────────────────────────────────────────
+loadData();
+if (AUTO_RELOAD > 0) {
+  setInterval(loadData, AUTO_RELOAD * 1000);
+}
+</script>
+</body>
+</html>

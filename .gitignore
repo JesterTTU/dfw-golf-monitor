@@ -1,0 +1,21 @@
+# Secrets — never commit these
+config.json
+
+# Database — large binary, regenerates on each run
+tee_times.db
+
+# Dashboard export — generated file
+dashboard_data.json
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store

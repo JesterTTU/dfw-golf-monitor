@@ -1,0 +1,36 @@
+{
+  "_comment": "Copy this file to config.json and fill in your values.",
+
+  "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL_HERE",
+
+  "courses": [
+    {
+      "id": 1315,
+      "name": "Tierra Verde",
+      "players": 2,
+      "_note": "facilityId 1315 on phx-api-be-east-1b.kenna.io"
+    },
+    {
+      "id": 1319,
+      "name": "Texas Rangers",
+      "players": 2,
+      "_note": "facilityId 1319 — premium pricing ($99-150 standard)"
+    }
+  ],
+
+  "alert_thresholds": {
+    "_comment": "Alert when price drops BELOW these dollar amounts for 18 holes + cart.",
+    "_tv_live_reference": "TV current weekday: $69-96 | twilight: $62 | super-twilight: $49",
+    "_tr_live_reference": "Rangers current weekday: $98-150 | twilight: $74-92",
+
+    "weekday":       65,
+    "friday":        80,
+    "weekend":       90,
+    "twilight_any":  50,
+    "super_twilight": 40
+  },
+
+  "alert_below_average_pct": 20,
+
+  "poll_days_ahead": 7
+}

@@ -1,0 +1,66 @@
+name: Tee Time Monitor
+
+on:
+  schedule:
+    # Every 2 hours — well under any reasonable rate limit
+    - cron: '0 */2 * * *'
+  workflow_dispatch:    # Manual trigger from the Actions tab
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Restore the SQLite DB BEFORE running monitor ──────────────────
+      # This lets rolling averages accumulate across runs.
+      # The cache saves automatically at job end via a post-step.
+      - name: Restore tee_times.db from cache
+        uses: actions/cache@v4
+        with:
+          path: tee-time-monitor/tee_times.db
+          key: tee-times-db-${{ github.run_id }}
+          restore-keys: |
+            tee-times-db-
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r tee-time-monitor/requirements.txt
+
+      # ── Build config.json from example + inject thresholds ────────────
+      # DISCORD_WEBHOOK secret is read directly by alerts.py via env var,
+      # so no substitution needed — just copy the example as the base config.
+      - name: Prepare config.json
+        working-directory: tee-time-monitor
+        run: |
+          cp config.example.json config.json
+          echo "config.json ready"
+
+      # ── Main poll ─────────────────────────────────────────────────────
+      - name: Run tee-time monitor
+        working-directory: tee-time-monitor
+        run: python monitor.py
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+      # ── Dashboard export ──────────────────────────────────────────────
+      - name: Export dashboard JSON
+        working-directory: tee-time-monitor
+        run: python export_dashboard.py
+
+      # ── Upload dashboard + HTML so you can view it from Actions tab ───
+      - name: Upload dashboard artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-${{ github.run_number }}
+          path: |
+            tee-time-monitor/dashboard_data.json
+            tee-time-monitor/dashboard.html
+          retention-days: 14
