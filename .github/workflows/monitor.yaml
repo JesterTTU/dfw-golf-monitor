@@ -1,4 +1,6 @@
 on:
+ permissions:
+   contents: write
   schedule:
     - cron: '0 */2 * * *'
   workflow_dispatch:
@@ -27,6 +29,16 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
       - run: python export_dashboard.py
+      - name: Commit price_history.csv to repo
+        run: |
+          git config user.name  "Golf Monitor Bot"
+          git config user.email "bot@dfw-golf-monitor"
+          git add price_history.csv
+          git diff --cached --quiet || \
+            git commit -m "data: price history update $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: dashboard-${{ github.run_number }}
