@@ -336,9 +336,10 @@ def process_teetime(
             best_price = p
             best_rate  = rate
 
-    # Persist ALL candidate rates (for price history richness)
+    # Persist ALL candidate rates (for price history + analysis)
+    booked = slot.get("bookedPlayers") or slot.get("booked_players")
     for rate in candidate_rates:
-        p = best_price_dollars(rate)
+        p     = best_price_dollars(rate)
         holes = rate.get("holes")
         insert_tee_time(
             course_id=course_id,
@@ -348,6 +349,9 @@ def process_teetime(
             price=p,
             holes=holes,
             players_available=max_players,
+            rate_name=rate.get("name"),
+            is_hot_deal=bool(rate.get("showAsHotDeal")),
+            booked_players=booked,
         )
 
     if best_price is None or best_price <= 0 or best_rate is None:
