@@ -13,6 +13,7 @@ De-duplication:
 import smtplib
 import json
 import logging
+import os
 from email.mime.text import MIMEText
 from datetime import datetime, timezone
 from typing import Optional
@@ -23,6 +24,16 @@ from db import was_alert_sent_recently, record_alert_sent
 
 logger = logging.getLogger(__name__)
 
+# Booking URL pattern — takes the user directly to the right course + date
+BOOKING_URL = "https://city-of-arlington.book.teeitup.com/teetimes?course={course_id}&date={date}"
+
+# Discord embed colors (decimal)
+COLORS = {
+    "hot_deal":      5763719,   # green
+    "threshold":     3447003,   # blue
+    "below_average": 10181046,  # purple
+}
+
 
 # ---------------------------------------------------------------------------
 # Public entry-point
@@ -32,11 +43,11 @@ def send_alert(
     course_id: int,
     course_name: str,
     tee_date: str,       # YYYY-MM-DD
-    tee_time: str,       # HH:MM
+    tee_time: str,       # HH:MM local
     price: float,
     holes: Optional[int],
     players_available: Optional[int],
-    alert_type: str,     # 'threshold' or 'below_average'
+    alert_type: str,     # 'hot_deal', 'threshold', or 'below_average'
     reason: str,         # human-readable reason string
     config: dict,
 ) -> bool:
@@ -53,8 +64,18 @@ def send_alert(
         )
         return False
 
-    message = _format_message(
-        course_name, tee_date, tee_time, price, holes, players_available, reason
+    booking_url = BOOKING_URL.format(course_id=course_id, date=tee_date)
+
+    embed = _build_embed(
+        course_name=course_name,
+        tee_date=tee_date,
+        tee_time=tee_time,
+        price=price,
+        holes=holes,
+        players_available=players_available,
+        alert_type=alert_type,
+        reason=reason,
+        booking_url=booking_url,
     )
 
     sent = False
@@ -62,12 +83,16 @@ def send_alert(
     # --- Discord ---
     webhook_url = _get_webhook_url(config)
     if webhook_url:
-        sent = _send_discord(webhook_url, message) or sent
+        sent = _send_discord(webhook_url, embed) or sent
 
     # --- Email ---
     smtp_cfg = config.get("smtp", {})
     if smtp_cfg.get("enabled", False):
-        sent = _send_email(smtp_cfg, message, course_name, tee_date, tee_time) or sent
+        plain_text = _format_plain_text(
+            course_name, tee_date, tee_time, price, holes,
+            players_available, reason, booking_url
+        )
+        sent = _send_email(smtp_cfg, plain_text, course_name, tee_date, tee_time) or sent
 
     if sent:
         record_alert_sent(course_id, tee_date, tee_time, price, alert_type)
@@ -80,10 +105,103 @@ def send_alert(
 
 
 # ---------------------------------------------------------------------------
-# Message formatting
+# Embed builder
 # ---------------------------------------------------------------------------
 
-def _format_message(
+def _build_embed(
+    course_name: str,
+    tee_date: str,
+    tee_time: str,
+    price: float,
+    holes: Optional[int],
+    players_available: Optional[int],
+    alert_type: str,
+    reason: str,
+    booking_url: str,
+) -> dict:
+    """
+    Build a Discord embed dict.  The embed title links directly to the
+    booking page for that course and date.
+    """
+    # Friendly date: "Saturday, Jun 28"
+    try:
+        dt = datetime.strptime(tee_date, "%Y-%m-%d")
+        date_str = dt.strftime("%A, %b %-d")
+    except ValueError:
+        date_str = tee_date
+
+    # 24h → 12h
+    try:
+        t = datetime.strptime(tee_time, "%H:%M")
+        time_str = t.strftime("%-I:%M %p")
+    except ValueError:
+        time_str = tee_time
+
+    holes_str   = f"{holes}" if holes else "?"
+    players_str = str(players_available) if players_available else "?"
+
+    type_labels = {
+        "hot_deal":      "🔥 Hot Deal",
+        "threshold":     "💲 Price Alert",
+        "below_average": "📉 Below Average",
+    }
+    type_label = type_labels.get(alert_type, "⛳ Deal")
+
+    embed = {
+        "title": f"⛳ {type_label} — {course_name}",
+        "url":   booking_url,           # clicking the title opens booking page
+        "color": COLORS.get(alert_type, 3447003),
+        "fields": [
+            {
+                "name":   "📅 Date",
+                "value":  date_str,
+                "inline": True,
+            },
+            {
+                "name":   "🕐 Tee Time",
+                "value":  time_str,
+                "inline": True,
+            },
+            {
+                "name":   "💰 Price",
+                "value":  f"**${price:.2f}**",
+                "inline": True,
+            },
+            {
+                "name":   "⛳ Holes",
+                "value":  holes_str,
+                "inline": True,
+            },
+            {
+                "name":   "👤 Spots Open",
+                "value":  players_str,
+                "inline": True,
+            },
+            {
+                "name":   "📊 Why",
+                "value":  reason,
+                "inline": False,
+            },
+            {
+                "name":   "🔗 Book Now",
+                "value":  f"[Open booking page]({booking_url})",
+                "inline": False,
+            },
+        ],
+        "footer": {
+            "text": "DFW Golf Monitor • Arlington TX",
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    return embed
+
+
+# ---------------------------------------------------------------------------
+# Plain-text fallback (for email)
+# ---------------------------------------------------------------------------
+
+def _format_plain_text(
     course_name: str,
     tee_date: str,
     tee_time: str,
@@ -91,31 +209,31 @@ def _format_message(
     holes: Optional[int],
     players_available: Optional[int],
     reason: str,
+    booking_url: str,
 ) -> str:
-    """Build a compact, human-readable alert string."""
-    # Parse date for a friendlier display (e.g. "Mon Jun 23")
     try:
         dt = datetime.strptime(tee_date, "%Y-%m-%d")
-        date_str = dt.strftime("%a %b %-d")   # e.g. "Mon Jun 23"
+        date_str = dt.strftime("%A, %b %-d")
     except ValueError:
         date_str = tee_date
 
-    # Convert HH:MM 24-hour → 12-hour with AM/PM
     try:
         t = datetime.strptime(tee_time, "%H:%M")
-        time_str = t.strftime("%-I:%M %p")    # e.g. "8:00 AM"
+        time_str = t.strftime("%-I:%M %p")
     except ValueError:
         time_str = tee_time
 
-    holes_str = f"{holes}-hole" if holes else "?"
-    players_str = f"{players_available} open" if players_available else "?"
+    holes_str   = f"{holes}-hole" if holes else "?"
+    players_str = f"{players_available}" if players_available else "?"
 
     return (
-        f"⛳ **Deal Alert — {course_name}**\n"
-        f"📅 {date_str}  🕐 {time_str}  ({holes_str})\n"
-        f"💰 **${price:.2f}**  |  👤 Spots: {players_str}\n"
-        f"📊 {reason}\n"
-        f"🔗 https://city-of-arlington.book.teeitup.com"
+        f"Deal Alert — {course_name}\n"
+        f"Date:    {date_str}\n"
+        f"Time:    {time_str}  ({holes_str})\n"
+        f"Price:   ${price:.2f}\n"
+        f"Spots:   {players_str} open\n"
+        f"Reason:  {reason}\n"
+        f"Book at: {booking_url}\n"
     )
 
 
@@ -124,23 +242,21 @@ def _format_message(
 # ---------------------------------------------------------------------------
 
 def _get_webhook_url(config: dict) -> Optional[str]:
-    """
-    Prefer env var DISCORD_WEBHOOK (for GitHub Actions secrets),
-    fall back to config file value.
-    """
-    import os
     url = os.environ.get("DISCORD_WEBHOOK") or config.get("discord_webhook_url", "")
-    if url and url != "YOUR_DISCORD_WEBHOOK_URL_HERE":
+    if url and url not in ("YOUR_DISCORD_WEBHOOK_URL_HERE", "TEST_SKIP", ""):
         return url
     return None
 
 
-def _send_discord(webhook_url: str, message: str) -> bool:
-    """POST to Discord webhook.  Returns True on success."""
+def _send_discord(webhook_url: str, embed: dict) -> bool:
+    """POST embed to Discord webhook.  Returns True on success."""
     try:
         resp = requests.post(
             webhook_url,
-            json={"content": message},
+            json={
+                "username": "Golf Monitor",
+                "embeds": [embed],
+            },
             timeout=10,
         )
         if resp.status_code in (200, 204):
@@ -180,19 +296,8 @@ def _send_email(
         return False
 
     subject = f"⛳ Tee Time Deal: {course_name} on {tee_date} at {tee_time}"
-    # Strip Discord markdown for plain-text email
-    plain = (
-        message.replace("**", "")
-               .replace("⛳", "")
-               .replace("📅", "Date:")
-               .replace("🕐", "")
-               .replace("💰", "Price:")
-               .replace("👤", "")
-               .replace("📊", "Reason:")
-               .replace("🔗", "Booking:")
-    )
 
-    msg = MIMEText(plain, "plain")
+    msg = MIMEText(message, "plain")
     msg["Subject"] = subject
     msg["From"]    = user
     msg["To"]      = to_addr
@@ -214,7 +319,7 @@ def _send_email(
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    import sys, json, os
+    import sys
 
     config_path = os.path.join(os.path.dirname(__file__), "config.json")
     if not os.path.exists(config_path):
@@ -229,14 +334,14 @@ if __name__ == "__main__":
 
     ok = send_alert(
         course_id=1315,
-        course_name="Tierra Verde (TEST)",
-        tee_date="2025-01-01",
-        tee_time="14:00",
-        price=29.99,
+        course_name="Tierra Verde",
+        tee_date="2026-06-28",
+        tee_time="14:10",
+        price=58.99,
         holes=18,
         players_available=4,
-        alert_type="threshold",
-        reason="$29.99 is below the $40 weekday threshold",
+        alert_type="hot_deal",
+        reason="Marked 'Hot Deal' by TeeItUp: $58.99 for 18 holes",
         config=cfg,
     )
     print("Alert sent:", ok)
