@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DFW Golf Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f1117; color: #e2e8f0; min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: #1a1d27; border-bottom: 1px solid #2d3748;
+      padding: 0 1.5rem; display: flex; align-items: center; gap: 0; height: 52px;
+    }
+    nav .logo { font-weight: 700; font-size: 1rem; color: #68d391; margin-right: 2rem; white-space: nowrap; }
+    .tab-btn {
+      background: none; border: none; color: #a0aec0;
+      padding: 0 1.1rem; height: 52px; cursor: pointer; font-size: 0.875rem;
+      border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover   { color: #e2e8f0; }
+    .tab-btn.active  { color: #68d391; border-bottom-color: #68d391; }
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
+    .sync-btn {
+      background: #2d3748; border: 1px solid #4a5568; border-radius: 5px;
+      color: #a0aec0; padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.8rem;
+    }
+    .sync-btn:hover { color: #e2e8f0; background: #374151; }
+    #sync-status { font-size: 0.75rem; color: #718096; }
+
+    /* ── Panels ── */
+    .panel { display: none; padding: 1.5rem; }
+    .panel.active { display: block; }
+
+    /* ── Cards / stats row ── */
+    .stat-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+    .stat-card {
+      background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px;
+      padding: 1rem 1.25rem; min-width: 140px; flex: 1;
+    }
+    .stat-card .label { font-size: 0.72rem; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-card .value { font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; }
+    .stat-card .value.green  { color: #68d391; }
+    .stat-card .value.blue   { color: #63b3ed; }
+    .stat-card .value.yellow { color: #ecc94b; }
+    .stat-card .value.red    { color: #fc8181; }
+
+    /* ── Section headers ── */
+    .section-title { font-size: 0.85rem; font-weight: 600; color: #a0aec0; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* ── Chart containers ── */
+    .chart-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+    .chart-box {
+      background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px; padding: 1.25rem;
+      flex: 1; min-width: 300px;
+    }
+    .chart-box h3 { font-size: 0.85rem; color: #a0aec0; margin-bottom: 1rem; }
+    .chart-box canvas { max-height: 220px; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #2d3748; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead th {
+      background: #1a1d27; padding: 0.65rem 0.9rem; text-align: left; font-weight: 600;
+      white-space: nowrap; color: #a0aec0; cursor: pointer; user-select: none;
+      position: sticky; top: 0;
+    }
+    thead th:hover { color: #e2e8f0; }
+    thead th.asc::after  { content: " ▲"; opacity: 0.7; }
+    thead th.desc::after { content: " ▼"; opacity: 0.7; }
+    tbody tr { border-top: 1px solid #2d3748; transition: background 0.1s; }
+    tbody tr:hover { background: #1e2433; }
+    td { padding: 0.55rem 0.9rem; white-space: nowrap; }
+    tr.deal   td:first-child { border-left: 3px solid #68d391; }
+    tr.normal td:first-child { border-left: 3px solid #ecc94b; }
+    tr.pricey td:first-child { border-left: 3px solid #4a5568; }
+    .badge {
+      border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; font-weight: 600;
+    }
+    .badge-deal    { background: #22543d; color: #68d391; }
+    .badge-normal  { background: #5f4a00; color: #ecc94b; }
+    .badge-pricey  { background: #2d3748; color: #718096; }
+
+    /* ── Controls row ── */
+    .controls {
+      display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+      background: #1a1d27; border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 1rem;
+    }
+    .controls label { font-size: 0.82rem; color: #a0aec0; }
+    .controls select, .controls input {
+      background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;
+      border-radius: 5px; padding: 0.3rem 0.6rem; font-size: 0.82rem;
+    }
+    .toggle-btn {
+      background: #2d3748; border: 1px solid #4a5568; border-radius: 5px;
+      color: #e2e8f0; padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.82rem;
+    }
+    .toggle-btn.active { background: #276749; border-color: #68d391; color: #68d391; }
+
+    /* ── Health run rows ── */
+    .run-row {
+      display: flex; gap: 1rem; align-items: center; padding: 0.65rem 1rem;
+      border-bottom: 1px solid #2d3748; font-size: 0.82rem;
+    }
+    .run-row:last-child { border-bottom: none; }
+    .pill {
+      border-radius: 99px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
+    }
+    .pill-success  { background: #22543d; color: #68d391; }
+    .pill-failure  { background: #742a2a; color: #fc8181; }
+    .pill-running  { background: #1a365d; color: #63b3ed; }
+    .pill-unknown  { background: #2d3748; color: #a0aec0; }
+
+    /* ── Heatmap grid ── */
+    .heatmap-wrap { overflow-x: auto; }
+    .heatmap-grid { display: grid; gap: 3px; width: max-content; }
+    .hm-cell {
+      width: 80px; height: 40px; border-radius: 4px; display: flex; align-items: center;
+      justify-content: center; font-size: 0.72rem; font-weight: 600; cursor: default;
+    }
+    .hm-header { background: none; color: #718096; font-weight: 600; }
+
+    /* ── Loading / error ── */
+    .loading-msg { text-align: center; padding: 3rem; color: #718096; }
+    .error-msg   { text-align: center; padding: 2rem; color: #fc8181; font-size: 0.9rem; }
+
+    @media (max-width: 640px) {
+      nav { padding: 0 0.75rem; }
+      .panel { padding: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">⛳ Golf Monitor</span>
+  <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+  <button class="tab-btn"        onclick="switchTab('trends')">📈 Trends</button>
+  <button class="tab-btn"        onclick="switchTab('health')">🔧 Health</button>
+  <div class="nav-right">
+    <button class="sync-btn" onclick="manualSync()">↻ Sync</button>
+    <span id="sync-status"></span>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════ DASHBOARD -->
+<div id="panel-dashboard" class="panel active">
+  <div class="stat-row" id="dash-stats">
+    <div class="stat-card"><div class="label">Total Rows</div><div class="value blue" id="s-total">—</div></div>
+    <div class="stat-card"><div class="label">Last Poll</div><div class="value green" id="s-poll">—</div></div>
+    <div class="stat-card"><div class="label">Deals Today</div><div class="value yellow" id="s-deals">—</div></div>
+    <div class="stat-card"><div class="label">Hot Deals</div><div class="value red" id="s-hot">—</div></div>
+  </div>
+
+  <div class="controls">
+    <label>Course <select id="f-course"><option value="">All</option></select></label>
+    <label>From <input type="date" id="f-from" /></label>
+    <label>To   <input type="date" id="f-to"   /></label>
+    <label>Search <input type="text" id="f-search" placeholder="time, price…" style="width:110px" /></label>
+    <button class="toggle-btn" id="btn-deals" onclick="toggleDeals()">⚡ Deals only</button>
+    <span style="margin-left:auto;font-size:0.78rem;color:#718096" id="row-count"></span>
+  </div>
+
+  <div class="table-wrap">
+    <div class="loading-msg" id="dash-loading">Loading data…</div>
+    <div class="error-msg"   id="dash-error" style="display:none"></div>
+    <table id="main-table" style="display:none">
+      <thead><tr>
+        <th data-col="course_name">Course</th>
+        <th data-col="tee_date">Date</th>
+        <th data-col="tee_time">Time</th>
+        <th data-col="price">Price</th>
+        <th data-col="holes">Holes</th>
+        <th data-col="players_available">Spots</th>
+        <th data-col="status">Status</th>
+        <th data-col="is_hot_deal">Hot Deal</th>
+        <th data-col="fetched_at">Fetched</th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ TRENDS -->
+<div id="panel-trends" class="panel">
+  <div class="loading-msg" id="trends-loading">Loading trends…</div>
+  <div class="error-msg"   id="trends-error" style="display:none"></div>
+  <div id="trends-content" style="display:none">
+
+    <div class="chart-row">
+      <div class="chart-box" style="flex:2; min-width:360px;">
+        <h3>Price Decay — how price drops as tee time approaches</h3>
+        <canvas id="chart-decay"></canvas>
+      </div>
+      <div class="chart-box" style="flex:1; min-width:260px;">
+        <h3>Hot Deal Frequency by Booking Window</h3>
+        <canvas id="chart-hotdeal"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-row">
+      <div class="chart-box" style="flex:1; min-width:300px;">
+        <h3>14-Day Price Trend (daily average)</h3>
+        <canvas id="chart-daily"></canvas>
+      </div>
+      <div class="chart-box" style="flex:1; min-width:300px;">
+        <h3>Best Booking Windows (avg price per course)</h3>
+        <canvas id="chart-windows"></canvas>
+      </div>
+    </div>
+
+    <div style="margin-bottom:1.5rem;">
+      <div class="section-title">Day-of-Week × Time-Block Price Heatmap</div>
+      <div id="heatmap-area"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ HEALTH -->
+<div id="panel-health" class="panel">
+  <div class="loading-msg" id="health-loading">Loading health…</div>
+  <div class="error-msg"   id="health-error" style="display:none"></div>
+  <div id="health-content" style="display:none">
+
+    <div class="stat-row" id="health-stats"></div>
+
+    <div style="margin-bottom:1.5rem;">
+      <div class="section-title">GitHub Actions — Last 5 Runs</div>
+      <div class="chart-box" style="padding:0">
+        <div id="run-list"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Database Summary</div>
+      <div class="stat-row" id="db-stats"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Tab switching ─────────────────────────────────────────────────────────
+let currentTab = 'dashboard';
+const loaded   = { dashboard: false, trends: false, health: false };
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['dashboard','trends','health'][i] === tab);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  currentTab = tab;
+  if (!loaded[tab]) {
+    if (tab === 'dashboard') loadDashboard();
+    if (tab === 'trends')    loadTrends();
+    if (tab === 'health')    loadHealth();
+  }
+}
+
+// ─── Sync button ───────────────────────────────────────────────────────────
+async function manualSync() {
+  const el = document.getElementById('sync-status');
+  el.textContent = 'Syncing…';
+  try {
+    const r = await fetch('/api/sync', { method: 'POST' });
+    const d = await r.json();
+    el.textContent = d.ok
+      ? `✓ +${d.new} new rows (${fmtRelTime(new Date())})`
+      : `✗ ${d.error}`;
+    // Refresh whichever tab is active
+    loaded[currentTab] = false;
+    if (currentTab === 'dashboard') loadDashboard();
+    if (currentTab === 'trends')    loadTrends();
+    if (currentTab === 'health')    loadHealth();
+  } catch(e) {
+    el.textContent = '✗ ' + e.message;
+  }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+function fmtRelTime(dt) {
+  const diff = Math.floor((Date.now() - new Date(dt)) / 1000);
+  if (diff < 60)   return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  return `${Math.floor(diff/3600)}h ago`;
+}
+function fmtDate(d) {
+  try { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }); }
+  catch { return d; }
+}
+function fmtTime(t) {
+  try {
+    const [h, m] = t.split(':').map(Number);
+    return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${h >= 12 ? 'PM' : 'AM'}`;
+  } catch { return t; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────────────────────────────────────────
+let allRows    = [];
+let thresholds = {};
+let sortCol    = 'tee_date';
+let sortDir    = 'asc';
+let dealsOnly  = false;
+
+function getThreshold(dateStr, timeStr) {
+  const h   = parseInt(timeStr.slice(0,2), 10);
+  const m   = parseInt(timeStr.slice(3,5), 10);
+  const dow = new Date(dateStr + 'T12:00:00').getDay();
+  if ((h > 17 || (h === 17 && m >= 30)) && thresholds.super_twilight != null)
+    return thresholds.super_twilight;
+  if (h >= 16) return thresholds.twilight_any ?? 999;
+  if (dow === 0 || dow === 6) return thresholds.weekend ?? 999;
+  if (dow === 5) return thresholds.friday ?? 999;
+  return thresholds.weekday ?? 999;
+}
+
+function rowStatus(r) {
+  if (r.price == null) return 'unknown';
+  const t = getThreshold(r.tee_date, r.tee_time);
+  return r.price < t ? 'deal' : r.price < t * 1.3 ? 'normal' : 'pricey';
+}
+
+function toggleDeals() {
+  dealsOnly = !dealsOnly;
+  document.getElementById('btn-deals').classList.toggle('active', dealsOnly);
+  renderTable();
+}
+
+function renderTable() {
+  const course = document.getElementById('f-course').value;
+  const from   = document.getElementById('f-from').value;
+  const to     = document.getElementById('f-to').value;
+  const search = document.getElementById('f-search').value.toLowerCase();
+
+  let rows = allRows.filter(r => {
+    if (course && r.course_name !== course) return false;
+    if (from && r.tee_date < from) return false;
+    if (to   && r.tee_date > to)   return false;
+    if (dealsOnly && rowStatus(r) !== 'deal') return false;
+    if (search) {
+      const hay = [r.course_name, r.tee_date, r.tee_time,
+        r.price != null ? '$'+r.price : ''].join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  rows.sort((a, b) => {
+    let va = sortCol === 'status' ? rowStatus(a) : (a[sortCol] ?? '');
+    let vb = sortCol === 'status' ? rowStatus(b) : (b[sortCol] ?? '');
+    if (typeof va === 'number') return sortDir === 'asc' ? va - vb : vb - va;
+    return sortDir === 'asc' ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+
+  document.getElementById('row-count').textContent = `${rows.length} rows`;
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  for (const r of rows) {
+    const st  = rowStatus(r);
+    const thr = getThreshold(r.tee_date, r.tee_time);
+    const tr  = document.createElement('tr');
+    tr.className = st;
+    tr.innerHTML = `
+      <td>${r.course_name ?? '—'}</td>
+      <td>${fmtDate(r.tee_date)}</td>
+      <td>${fmtTime(r.tee_time)}</td>
+      <td><strong>$${r.price?.toFixed(2) ?? '—'}</strong>${thr < 999 ? ` <span style="font-size:0.72rem;color:#718096">/ $${thr}</span>` : ''}</td>
+      <td>${r.holes ?? '—'}</td>
+      <td>${r.players_available ?? '—'}</td>
+      <td><span class="badge badge-${st}">${st.charAt(0).toUpperCase()+st.slice(1)}</span></td>
+      <td>${r.is_hot_deal ? '🔥' : '—'}</td>
+      <td style="color:#718096;font-size:0.75rem">${new Date(r.fetched_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('main-table').style.display = rows.length ? 'table' : 'none';
+}
+
+async function loadDashboard() {
+  loaded.dashboard = true;
+  try {
+    const data = await fetch('/api/data?days=30').then(r => r.json());
+    if (data.error) throw new Error(data.error);
+
+    thresholds = data.thresholds ?? {};
+    allRows    = data.tee_times  ?? [];
+
+    // Stats row
+    const today = new Date().toISOString().slice(0,10);
+    const dealsToday = allRows.filter(r => r.tee_date === today && rowStatus(r) === 'deal').length;
+    const hotDeals   = allRows.filter(r => r.is_hot_deal).length;
+
+    document.getElementById('s-total').textContent = allRows.length.toLocaleString();
+    document.getElementById('s-poll').textContent  = data.last_fetched
+      ? fmtRelTime(data.last_fetched) : '—';
+    document.getElementById('s-deals').textContent = dealsToday;
+    document.getElementById('s-hot').textContent   = hotDeals;
+
+    // Populate course filter
+    const sel = document.getElementById('f-course');
+    sel.innerHTML = '<option value="">All</option>';
+    [...new Set(allRows.map(r => r.course_name).filter(Boolean))].sort().forEach(n => {
+      const o = document.createElement('option'); o.value = n; o.textContent = n;
+      sel.appendChild(o);
+    });
+
+    // Default date range
+    const dates = allRows.map(r => r.tee_date).sort();
+    if (dates.length) {
+      document.getElementById('f-from').value = dates[0];
+      document.getElementById('f-to').value   = dates[dates.length - 1];
+    }
+
+    document.getElementById('dash-loading').style.display = 'none';
+    renderTable();
+
+  } catch(e) {
+    document.getElementById('dash-loading').style.display = 'none';
+    const err = document.getElementById('dash-error');
+    err.style.display = 'block';
+    err.textContent   = 'Failed to load dashboard: ' + e.message;
+  }
+}
+
+// Column sort
+document.querySelectorAll('thead th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; }
+    else { sortCol = col; sortDir = 'asc'; }
+    document.querySelectorAll('thead th').forEach(h => h.classList.remove('asc','desc'));
+    th.classList.add(sortDir);
+    renderTable();
+  });
+});
+['f-course','f-from','f-to','f-search'].forEach(id =>
+  document.getElementById(id).addEventListener('change', renderTable));
+document.getElementById('f-search').addEventListener('input', renderTable);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRENDS
+// ─────────────────────────────────────────────────────────────────────────────
+const COLORS = ['#68d391','#63b3ed','#f6ad55','#fc8181','#b794f4'];
+
+function buildChart(id, type, labels, datasets, opts = {}) {
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { labels: { color: '#a0aec0', boxWidth: 12 } } },
+      scales: type !== 'pie' ? {
+        x: { ticks: { color: '#718096' }, grid: { color: '#2d3748' } },
+        y: { ticks: { color: '#718096', callback: v => '$' + v }, grid: { color: '#2d3748' } }
+      } : {},
+      ...opts
+    }
+  });
+}
+
+async function loadTrends() {
+  loaded.trends = true;
+  try {
+    const d = await fetch('/api/trends').then(r => r.json());
+    if (d.error) throw new Error(d.error);
+
+    // --- Price decay chart ---
+    const courses = [...new Set(d.decay.map(r => r.course_name))];
+    const buckets = [...new Set(d.decay.map(r => r.bucket))];
+    buildChart('chart-decay', 'line', buckets,
+      courses.map((c, i) => ({
+        label: c,
+        data: buckets.map(b => {
+          const r = d.decay.find(x => x.course_name === c && x.bucket === b);
+          return r ? r.avg_price : null;
+        }),
+        borderColor: COLORS[i], backgroundColor: COLORS[i] + '22',
+        tension: 0.3, fill: false, spanGaps: true,
+        pointRadius: 4,
+      }))
+    );
+
+    // --- Hot deal pct by window ---
+    if (d.windows && d.windows.length) {
+      const wins = [...new Set(d.windows.map(r => r.window))];
+      buildChart('chart-hotdeal', 'bar', wins,
+        courses.map((c, i) => ({
+          label: c,
+          data: wins.map(w => {
+            const r = d.windows.find(x => x.course_name === c && x.window === w);
+            return r ? r.hot_deal_pct : 0;
+          }),
+          backgroundColor: COLORS[i] + 'bb',
+        })),
+        { scales: { y: { ticks: { color: '#718096', callback: v => v + '%' }, grid: { color: '#2d3748' } },
+                    x: { ticks: { color: '#718096' }, grid: { color: '#2d3748' } } } }
+      );
+    }
+
+    // --- 14-day daily trend ---
+    if (d.daily && d.daily.length) {
+      const dates = [...new Set(d.daily.map(r => r.fetch_date))].sort();
+      buildChart('chart-daily', 'line', dates,
+        courses.map((c, i) => ({
+          label: c,
+          data: dates.map(dt => {
+            const r = d.daily.find(x => x.course_name === c && x.fetch_date === dt);
+            return r ? r.avg_price : null;
+          }),
+          borderColor: COLORS[i], backgroundColor: COLORS[i] + '22',
+          tension: 0.3, fill: true, spanGaps: true, pointRadius: 3,
+        }))
+      );
+    }
+
+    // --- Best booking windows ---
+    if (d.windows && d.windows.length) {
+      const wins = [...new Set(d.windows.map(r => r.window))];
+      buildChart('chart-windows', 'bar', wins,
+        courses.map((c, i) => ({
+          label: c,
+          data: wins.map(w => {
+            const r = d.windows.find(x => x.course_name === c && x.window === w);
+            return r ? r.avg_price : null;
+          }),
+          backgroundColor: COLORS[i] + 'bb',
+        }))
+      );
+    }
+
+    // --- Heatmap ---
+    renderHeatmap(d.heatmap, courses);
+
+    document.getElementById('trends-loading').style.display  = 'none';
+    document.getElementById('trends-content').style.display  = 'block';
+
+  } catch(e) {
+    document.getElementById('trends-loading').style.display = 'none';
+    const err = document.getElementById('trends-error');
+    err.style.display = 'block';
+    err.textContent   = 'Failed to load trends: ' + e.message;
+    console.error(e);
+  }
+}
+
+function renderHeatmap(heatmap, courses) {
+  const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const BLOCKS = ['Morning (6-11)','Midday (11-2)','Afternoon (2-4)','Twilight (4-6)','Evening (6+)'];
+  const area   = document.getElementById('heatmap-area');
+
+  // Compute global min/max for color scaling
+  const prices = heatmap.map(r => r.avg_price).filter(Boolean);
+  const lo = Math.min(...prices), hi = Math.max(...prices);
+
+  function priceColor(p) {
+    if (!p) return '#1a1d27';
+    const t = (p - lo) / (hi - lo + 0.001);
+    // green (cheap) → yellow → red (expensive)
+    const r = Math.round(t > 0.5 ? 255 : t * 2 * 255);
+    const g = Math.round(t > 0.5 ? (1 - (t-0.5)*2) * 255 : 255);
+    return `rgb(${r},${g},60)`;
+  }
+
+  courses.forEach(course => {
+    const rows = heatmap.filter(r => r.course_name === course);
+    let html = `<div style="margin-bottom:1.25rem">
+      <div class="section-title" style="margin-bottom:0.5rem">${course}</div>
+      <div class="heatmap-wrap">
+      <div class="heatmap-grid" style="grid-template-columns: 140px repeat(${DAYS.length}, 80px)">`;
+
+    // Header row
+    html += '<div class="hm-cell hm-header"></div>';
+    DAYS.forEach(d => { html += `<div class="hm-cell hm-header">${d}</div>`; });
+
+    // Data rows
+    BLOCKS.forEach(block => {
+      html += `<div class="hm-cell hm-header" style="font-size:0.65rem;width:140px;text-align:right;padding-right:8px">${block}</div>`;
+      DAYS.forEach((day, di) => {
+        const r = rows.find(x => x.dow === di && x.time_block === block);
+        const bg  = priceColor(r?.avg_price);
+        const txt = r ? `$${r.avg_price}` : '—';
+        const fc  = r && r.avg_price > (lo + (hi-lo)*0.6) ? '#fff' : '#111';
+        html += `<div class="hm-cell" style="background:${bg};color:${fc}" title="${r?.observations ?? 0} obs">${txt}</div>`;
+      });
+    });
+
+    html += '</div></div></div>';
+    area.insertAdjacentHTML('beforeend', html);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HEALTH
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadHealth() {
+  loaded.health = true;
+  try {
+    const d = await fetch('/api/health').then(r => r.json());
+    if (d.error) throw new Error(d.error);
+
+    // Stats row
+    const lastRun   = d.github_runs?.[0];
+    const isOK      = lastRun?.conclusion === 'success';
+    const syncOK    = !d.sync_error;
+
+    document.getElementById('health-stats').innerHTML = `
+      <div class="stat-card">
+        <div class="label">Agent Status</div>
+        <div class="value ${isOK ? 'green' : 'red'}">${isOK ? '✓ OK' : '✗ Down'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Last Run</div>
+        <div class="value blue">${lastRun ? fmtRelTime(lastRun.updated_at || lastRun.created_at) : '—'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Last Sync</div>
+        <div class="value ${syncOK ? 'green' : 'red'}">${d.last_sync_at ? fmtRelTime(d.last_sync_at) : '—'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Sync Rows</div>
+        <div class="value blue">${d.last_sync_rows?.toLocaleString() ?? '—'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">New This Sync</div>
+        <div class="value yellow">+${d.last_sync_new ?? '—'}</div>
+      </div>
+    `;
+
+    // Runs list
+    const runList = document.getElementById('run-list');
+    runList.innerHTML = (d.github_runs ?? []).map(r => {
+      const cls = r.conclusion === 'success' ? 'success'
+                : r.conclusion === 'failure' ? 'failure'
+                : r.status === 'in_progress' ? 'running' : 'unknown';
+      return `<div class="run-row">
+        <span class="pill pill-${cls}">${r.conclusion || r.status || '?'}</span>
+        <span style="color:#a0aec0">${r.created_at ? new Date(r.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '?'}</span>
+        <a href="${r.url}" target="_blank" rel="noopener" style="margin-left:auto;font-size:0.78rem">View run ↗</a>
+      </div>`;
+    }).join('') || '<div style="padding:1rem;color:#718096">No runs found</div>';
+
+    // DB stats
+    const db = d.db ?? {};
+    document.getElementById('db-stats').innerHTML = `
+      <div class="stat-card"><div class="label">Total Observations</div><div class="value blue">${(db.total_rows ?? 0).toLocaleString()}</div></div>
+      <div class="stat-card"><div class="label">Hot Deals Seen</div><div class="value red">${(db.hot_deals ?? 0).toLocaleString()}</div></div>
+      <div class="stat-card"><div class="label">First Fetch</div><div class="value" style="font-size:0.9rem">${db.first_fetch ? new Date(db.first_fetch).toLocaleDateString() : '—'}</div></div>
+      <div class="stat-card"><div class="label">Latest Fetch</div><div class="value" style="font-size:0.9rem">${db.last_fetch ? fmtRelTime(db.last_fetch) : '—'}</div></div>
+    `;
+
+    document.getElementById('health-loading').style.display  = 'none';
+    document.getElementById('health-content').style.display  = 'block';
+
+  } catch(e) {
+    document.getElementById('health-loading').style.display = 'none';
+    const err = document.getElementById('health-error');
+    err.style.display = 'block';
+    err.textContent   = 'Failed to load health: ' + e.message;
+  }
+}
+
+// ─── Boot ──────────────────────────────────────────────────────────────────
+loadDashboard();
+setInterval(() => {
+  loaded[currentTab] = false;
+  if (currentTab === 'dashboard') loadDashboard();
+  if (currentTab === 'trends')    loadTrends();
+  if (currentTab === 'health')    loadHealth();
+}, 5 * 60 * 1000);  // auto-refresh every 5 min
+</script>
+</body>
+</html>
