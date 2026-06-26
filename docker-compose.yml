@@ -1,0 +1,21 @@
+services:
+  golf-monitor:
+    build: .
+    image: dfw-golf-monitor:latest
+    container_name: golf-monitor
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data        # SQLite DB persists here across restarts
+    environment:
+      - DB_PATH=/app/data/tee_times.db
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}          # optional — avoids GitHub rate limits
+      - SYNC_INTERVAL_MINUTES=${SYNC_INTERVAL_MINUTES:-30}
+      - PORT=8080
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
