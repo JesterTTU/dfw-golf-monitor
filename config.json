@@ -15,7 +15,8 @@
     {"id": 1311, "name": "Prairie Lakes", "alias": "prairie-lakes-golf-course", "players": 2},
     {"id": 1280, "name": "Champions Circle", "alias": "golf-club-at-champions-circle", "players": 2},
     {"id": 1391, "name": "Tour 18", "alias": "tour-18-dallas", "players": 2},
-    {"id": 3793, "name": "Wildhorse at Robson Ranch", "alias": "wildhorse-at-robson-ranch", "players": 2}
+    {"id": 3793, "name": "Wildhorse at Robson Ranch", "alias": "wildhorse-at-robson-ranch", "players": 2},
+    {"id": 6335, "name": "Cleburne Golf Links", "alias": "cleburne-golf-links", "players": 2}
   ],
   "alert_thresholds": {
     "weekday": 65, "friday": 80, "weekend": 90,
