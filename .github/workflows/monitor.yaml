@@ -2,9 +2,10 @@ name: Tee Time Monitor
 
 on:
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 */2 * * *'   # every 2 hours
   workflow_dispatch:
 
+# Allow the workflow to push CSV history back to the repo
 permissions:
   contents: write
 
@@ -13,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ── Restore SQLite DB so rolling averages accumulate ──────────────
       - name: Restore tee_times.db from cache
         uses: actions/cache@v4
         with:
@@ -23,7 +25,10 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      # ── Restore any previously committed CSV into the workspace ───────
+      # (So the DB can be rebuilt from CSV if the cache is ever lost)
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -34,28 +39,37 @@ jobs:
       - name: Prepare config.json
         run: cp config.example.json config.json
 
+      # ── Main poll ─────────────────────────────────────────────────────
       - name: Run tee-time monitor
         run: python monitor.py
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK_HOT_DEALS: ${{ secrets.DISCORD_WEBHOOK_HOT_DEALS }}
 
+      # ── Export price history to CSV ───────────────────────────────────
       - name: Export price history CSV
         run: python export_csv.py
 
+      # ── Commit the CSV back to main (persistent history) ──────────────
+      # This means price_history.csv in the repo accumulates all data
+      # forever — even if the SQLite cache expires.
       - name: Commit price_history.csv to repo
         run: |
           git config user.name  "Golf Monitor Bot"
           git config user.email "bot@dfw-golf-monitor"
           git add price_history.csv
+          # Only commit if there are changes
           git diff --cached --quiet || \
-            git commit -m "data: price history $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git commit -m "data: price history update $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Export dashboard
+      # ── Export dashboard JSON ──────────────────────────────────────────
+      - name: Export dashboard JSON
         run: python export_dashboard.py
 
+      # ── Upload dashboard as artifact (viewable from Actions tab) ──────
       - name: Upload dashboard artifact
         uses: actions/upload-artifact@v4
         with:
