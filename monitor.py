@@ -87,7 +87,7 @@ TEEITUP_API     = f"{KENNA_BASE}/v2/tee-times"
 DEFAULT_BE_ALIAS = "city-of-arlington"      # fallback x-be-alias header value
 
 # All DFW courses are in Central Time
-ARLINGTON_TZ = ZoneInfo("America/Chicago")
+LOCAL_TZ = ZoneInfo("America/Chicago")
 
 # ---------------------------------------------------------------------------
 # Config loading
@@ -127,7 +127,7 @@ def load_config(path: Optional[str] = None) -> dict:
 
 def dates_to_fetch(days_ahead: int) -> list[str]:
     """Return ISO date strings for today + the next N days (Central time local date)."""
-    today = datetime.now(ARLINGTON_TZ).date()
+    today = datetime.now(LOCAL_TZ).date()
     return [(today + timedelta(days=i)).isoformat() for i in range(days_ahead)]
 
 
@@ -147,7 +147,7 @@ def teetime_to_local_hhmm(teetime_utc: str) -> str:
     """
     try:
         dt_utc = datetime.fromisoformat(teetime_utc.replace("Z", "+00:00"))
-        dt_local = dt_utc.astimezone(ARLINGTON_TZ)
+        dt_local = dt_utc.astimezone(LOCAL_TZ)
         return dt_local.strftime("%H:%M")
     except (ValueError, AttributeError):
         if "T" in teetime_utc:
