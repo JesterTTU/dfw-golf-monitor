@@ -295,6 +295,7 @@ def process_teetime(
     hot_deal_pct: float,
     config: dict,
     players_needed: int,
+    booking_alias: str = "city-of-arlington",
 ) -> None:
     """
     Process one teetime slot (which may have multiple rates).
@@ -383,6 +384,7 @@ def process_teetime(
             alert_type="threshold",
             reason=reason,
             config=config,
+            booking_alias=booking_alias,
         )
         return
 
@@ -419,6 +421,7 @@ def process_teetime(
                 alert_type="hot_deal",
                 reason=reason,
                 config=config,
+                booking_alias=booking_alias,
             )
         elif pct_below >= below_avg_pct:
             reason = (
@@ -436,6 +439,7 @@ def process_teetime(
                 alert_type="below_average",
                 reason=reason,
                 config=config,
+                booking_alias=booking_alias,
             )
 
 
@@ -501,6 +505,7 @@ def main() -> int:
                         hot_deal_pct=hot_deal_pct,
                         config=config,
                         players_needed=players,
+                        booking_alias=be_alias,
                     )
                 total_slots += len(slots)
 
