@@ -220,6 +220,32 @@ def was_alert_sent_recently(
     return bool(row and row["cnt"] > 0)
 
 
+def get_last_alerted_price(
+    course_id: int,
+    tee_date: str,
+    tee_time: str,
+    hours: int = 6,
+) -> Optional[float]:
+    """
+    Returns the price from the most recent alert for this slot within the
+    given time window, or None if no alert has been sent recently.
+    Use this to detect price changes: if the current price differs from the
+    last alerted price, it's worth re-alerting.
+    """
+    with _connect() as conn:
+        row = conn.execute(
+            """
+            SELECT price FROM alerts_sent
+            WHERE  course_id = ? AND tee_date = ? AND tee_time = ?
+              AND  sent_at >= datetime('now', ? || ' hours')
+            ORDER  BY sent_at DESC
+            LIMIT  1
+            """,
+            (course_id, tee_date, tee_time, f"-{hours}"),
+        ).fetchone()
+    return row["price"] if row else None
+
+
 def get_recent_tee_times(days_back: int = 7) -> list[dict]:
     with _connect() as conn:
         rows = conn.execute(
