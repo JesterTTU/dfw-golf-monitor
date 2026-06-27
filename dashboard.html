@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Arlington Golf Tee-Time Monitor</title>
+  <title>DFW Golf Tee-Time Monitor</title>
   <style>
     /* ── Reset / Base ──────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -109,7 +109,7 @@
 
 <header>
   <div>
-    <h1>⛳ Arlington Golf <span>Tee-Time Monitor</span></h1>
+    <h1>⛳ DFW Golf <span>Tee-Time Monitor</span></h1>
     <div id="meta">Loading data…</div>
   </div>
   <div style="font-size:0.78rem; color:#4a5568;">
@@ -398,9 +398,12 @@ function populateCourseFilter(rows) {
 
 function setDefaultDateRange(rows) {
   if (!rows.length) return;
-  const dates = rows.map(r => r.tee_date).sort();
-  document.getElementById("filter-from").value = dates[0];
-  document.getElementById("filter-to").value   = dates[dates.length - 1];
+  const today = new Date();
+  const todayStr = today.getFullYear() + "-"
+    + String(today.getMonth() + 1).padStart(2, "0") + "-"
+    + String(today.getDate()).padStart(2, "0");
+  document.getElementById("filter-from").value = todayStr;
+  document.getElementById("filter-to").value   = todayStr;
 }
 
 async function loadData() {
