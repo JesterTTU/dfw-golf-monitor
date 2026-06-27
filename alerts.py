@@ -20,7 +20,7 @@ from typing import Optional
 
 import requests
 
-from db import was_alert_sent_recently, record_alert_sent
+from db import get_last_alerted_price, record_alert_sent
 
 logger = logging.getLogger(__name__)
 
@@ -57,12 +57,24 @@ def send_alert(
     """
     dedupe_hours = config.get("dedupe_hours", 6)
 
-    if was_alert_sent_recently(course_id, tee_date, tee_time, hours=dedupe_hours):
-        logger.debug(
-            "[alerts] Suppressed duplicate for %s %s %s (within %dh window)",
-            course_name, tee_date, tee_time, dedupe_hours,
-        )
-        return False
+    last_price = get_last_alerted_price(course_id, tee_date, tee_time, hours=dedupe_hours)
+    if last_price is not None:
+        if abs(last_price - price) < 0.01:
+            # Same price — suppress to avoid noise
+            logger.debug(
+                "[alerts] Suppressed duplicate for %s %s %s — price unchanged at $%.2f",
+                course_name, tee_date, tee_time, price,
+            )
+            return False
+        else:
+            # Price changed — allow the alert and note the change
+            delta = price - last_price
+            direction = "dropped" if delta < 0 else "increased"
+            reason = f"{reason}  |  💸 Price {direction} ${abs(delta):.2f} (was ${last_price:.2f})"
+            logger.debug(
+                "[alerts] Price changed for %s %s %s: $%.2f → $%.2f",
+                course_name, tee_date, tee_time, last_price, price,
+            )
 
     booking_url = BOOKING_URL.format(course_id=course_id, date=tee_date)
 
@@ -127,12 +139,14 @@ def _build_embed(
     Build a Discord embed dict.  The embed title links directly to the
     booking page for that course and date.
     """
+    # Friendly date: "Saturday, Jun 28"
     try:
         dt = datetime.strptime(tee_date, "%Y-%m-%d")
         date_str = dt.strftime("%A, %b %-d")
     except ValueError:
         date_str = tee_date
 
+    # 24h → 12h
     try:
         t = datetime.strptime(tee_time, "%H:%M")
         time_str = t.strftime("%-I:%M %p")
@@ -151,18 +165,48 @@ def _build_embed(
 
     embed = {
         "title": f"⛳ {type_label} — {course_name}",
-        "url":   booking_url,
+        "url":   booking_url,           # clicking the title opens booking page
         "color": COLORS.get(alert_type, 3447003),
         "fields": [
-            {"name": "📅 Date",      "value": date_str,            "inline": True},
-            {"name": "🕐 Tee Time",  "value": time_str,            "inline": True},
-            {"name": "💰 Price",     "value": f"**${price:.2f}**", "inline": True},
-            {"name": "⛳ Holes",     "value": holes_str,           "inline": True},
-            {"name": "👤 Spots Open","value": players_str,         "inline": True},
-            {"name": "📊 Why",       "value": reason,              "inline": False},
-            {"name": "🔗 Book Now",  "value": f"[Open booking page]({booking_url})", "inline": False},
+            {
+                "name":   "📅 Date",
+                "value":  date_str,
+                "inline": True,
+            },
+            {
+                "name":   "🕐 Tee Time",
+                "value":  time_str,
+                "inline": True,
+            },
+            {
+                "name":   "💰 Price",
+                "value":  f"**${price:.2f}**",
+                "inline": True,
+            },
+            {
+                "name":   "⛳ Holes",
+                "value":  holes_str,
+                "inline": True,
+            },
+            {
+                "name":   "👤 Spots Open",
+                "value":  players_str,
+                "inline": True,
+            },
+            {
+                "name":   "📊 Why",
+                "value":  reason,
+                "inline": False,
+            },
+            {
+                "name":   "🔗 Book Now",
+                "value":  f"[Open booking page]({booking_url})",
+                "inline": False,
+            },
         ],
-        "footer": {"text": "DFW Golf Monitor • Arlington TX"},
+        "footer": {
+            "text": "DFW Golf Monitor • Arlington TX",
+        },
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
