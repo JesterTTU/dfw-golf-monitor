@@ -81,7 +81,11 @@ def send_alert(
     sent = False
 
     # --- Discord ---
-    webhook_url = _get_webhook_url(config)
+    # Hot deals → dedicated channel; everything else → original channel
+    if alert_type == "hot_deal":
+        webhook_url = _get_hot_deals_webhook_url(config)
+    else:
+        webhook_url = _get_webhook_url(config)
     if webhook_url:
         sent = _send_discord(webhook_url, embed) or sent
 
@@ -123,14 +127,12 @@ def _build_embed(
     Build a Discord embed dict.  The embed title links directly to the
     booking page for that course and date.
     """
-    # Friendly date: "Saturday, Jun 28"
     try:
         dt = datetime.strptime(tee_date, "%Y-%m-%d")
         date_str = dt.strftime("%A, %b %-d")
     except ValueError:
         date_str = tee_date
 
-    # 24h → 12h
     try:
         t = datetime.strptime(tee_time, "%H:%M")
         time_str = t.strftime("%-I:%M %p")
@@ -149,48 +151,18 @@ def _build_embed(
 
     embed = {
         "title": f"⛳ {type_label} — {course_name}",
-        "url":   booking_url,           # clicking the title opens booking page
+        "url":   booking_url,
         "color": COLORS.get(alert_type, 3447003),
         "fields": [
-            {
-                "name":   "📅 Date",
-                "value":  date_str,
-                "inline": True,
-            },
-            {
-                "name":   "🕐 Tee Time",
-                "value":  time_str,
-                "inline": True,
-            },
-            {
-                "name":   "💰 Price",
-                "value":  f"**${price:.2f}**",
-                "inline": True,
-            },
-            {
-                "name":   "⛳ Holes",
-                "value":  holes_str,
-                "inline": True,
-            },
-            {
-                "name":   "👤 Spots Open",
-                "value":  players_str,
-                "inline": True,
-            },
-            {
-                "name":   "📊 Why",
-                "value":  reason,
-                "inline": False,
-            },
-            {
-                "name":   "🔗 Book Now",
-                "value":  f"[Open booking page]({booking_url})",
-                "inline": False,
-            },
+            {"name": "📅 Date",      "value": date_str,            "inline": True},
+            {"name": "🕐 Tee Time",  "value": time_str,            "inline": True},
+            {"name": "💰 Price",     "value": f"**${price:.2f}**", "inline": True},
+            {"name": "⛳ Holes",     "value": holes_str,           "inline": True},
+            {"name": "👤 Spots Open","value": players_str,         "inline": True},
+            {"name": "📊 Why",       "value": reason,              "inline": False},
+            {"name": "🔗 Book Now",  "value": f"[Open booking page]({booking_url})", "inline": False},
         ],
-        "footer": {
-            "text": "DFW Golf Monitor • Arlington TX",
-        },
+        "footer": {"text": "DFW Golf Monitor • Arlington TX"},
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -246,6 +218,15 @@ def _get_webhook_url(config: dict) -> Optional[str]:
     if url and url not in ("YOUR_DISCORD_WEBHOOK_URL_HERE", "TEST_SKIP", ""):
         return url
     return None
+
+
+def _get_hot_deals_webhook_url(config: dict) -> Optional[str]:
+    """Returns the dedicated Hot Deals channel webhook, falling back to the main webhook."""
+    url = os.environ.get("DISCORD_WEBHOOK_HOT_DEALS") or config.get("discord_webhook_hot_deals_url", "")
+    if url and url not in ("YOUR_DISCORD_WEBHOOK_URL_HERE", "TEST_SKIP", ""):
+        return url
+    # Fallback: if no hot-deals webhook configured, use the main one
+    return _get_webhook_url(config)
 
 
 def _send_discord(webhook_url: str, embed: dict) -> bool:
