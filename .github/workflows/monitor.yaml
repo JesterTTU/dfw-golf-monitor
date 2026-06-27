@@ -61,7 +61,7 @@ jobs:
           # Only commit if there are changes
           git diff --cached --quiet || \
             git commit -m "data: price history update $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git push
+          git pull --rebase origin main && git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
