@@ -113,9 +113,7 @@
     <div id="meta">Loading data…</div>
   </div>
   <div style="font-size:0.78rem; color:#4a5568;">
-    <a href="https://city-of-arlington.book.teeitup.com" target="_blank" rel="noopener">
-      Book on TeeItUp ↗
-    </a>
+    Course names link directly to each course's booking page.
   </div>
 </header>
 
@@ -183,9 +181,15 @@ const AUTO_RELOAD = 120; // seconds; set 0 to disable
 // ────────────────────────────────────────────────────────────────
 let allRows     = [];
 let thresholds  = {};
+let courseAliases = {};   // course_id → TeeItUp alias (built from data.courses on load)
 let sortCol     = "tee_date";
 let sortDir     = "asc";   // "asc" | "desc"
 let dealsOnly   = false;
+
+function bookingUrl(courseId) {
+  const alias = courseAliases[courseId] || "city-of-arlington";
+  return `https://${alias}.book.teeitup.golf`;
+}
 
 // ────────────────────────────────────────────────────────────────
 // Threshold helpers (mirror Python logic)
@@ -319,8 +323,9 @@ function render() {
           ? ` <span style="font-size:0.72rem;color:#718096">/ $${thresh}</span>` : "")
       : "—";
 
+    const bUrl = bookingUrl(r.course_id);
     tr.innerHTML = `
-      <td>${r.course_name ?? "—"}</td>
+      <td><a href="${bUrl}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;" title="Book at ${bUrl}">${r.course_name ?? "—"} <span style="font-size:0.7rem;opacity:0.45">↗</span></a></td>
       <td>${fmtDate(r.tee_date)}</td>
       <td>${fmtTime(r.tee_time)}</td>
       <td>${priceHTML}</td>
@@ -412,8 +417,11 @@ async function loadData() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
 
-    thresholds = data.thresholds ?? {};
-    allRows    = data.tee_times  ?? [];
+    thresholds    = data.thresholds ?? {};
+    allRows       = data.tee_times  ?? [];
+    courseAliases = Object.fromEntries(
+      (data.courses ?? []).map(c => [c.id, c.alias])
+    );
 
     // Update meta bar
     const lastFetched = data.last_fetched
