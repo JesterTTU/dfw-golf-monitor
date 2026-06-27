@@ -1,28 +1,29 @@
 {
-  "_comment": "Copy this file to config.json and fill in your values.",
+  "_comment": "This file is copied to config.json at the start of each workflow run. Discord webhooks are injected via DISCORD_WEBHOOK and DISCORD_WEBHOOK_HOT_DEALS environment variables (GitHub secrets).",
 
   "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL_HERE",
+  "discord_webhook_hot_deals_url": "YOUR_HOT_DEALS_WEBHOOK_URL_HERE",
 
   "courses": [
-    {
-      "id": 1315,
-      "name": "Tierra Verde",
-      "players": 2,
-      "_note": "facilityId 1315 on phx-api-be-east-1b.kenna.io"
-    },
-    {
-      "id": 1319,
-      "name": "Texas Rangers",
-      "players": 2,
-      "_note": "facilityId 1319 — premium pricing ($99-150 standard)"
-    }
+    {"id": 1315, "name": "Tierra Verde", "alias": "city-of-arlington", "players": 2},
+    {"id": 1319, "name": "Texas Rangers", "alias": "city-of-arlington", "players": 2},
+    {"id": 4992, "name": "Lake Arlington", "alias": "city-of-arlington", "players": 2},
+    {"id": 846, "name": "Tangle Ridge", "alias": "tangle-ridge-golf-club", "players": 2},
+    {"id": 1307, "name": "Pecan Hollow", "alias": "pecan-hollow-golf-course", "players": 2},
+    {"id": 9413, "name": "Firewheel - Bridges", "alias": "firewheel-golf-park-v2", "players": 2},
+    {"id": 9415, "name": "Firewheel - Old", "alias": "firewheel-golf-park-v2", "players": 2},
+    {"id": 9414, "name": "Firewheel - Lakes", "alias": "firewheel-golf-park-v2", "players": 2},
+    {"id": 48, "name": "Waterchase", "alias": "waterchase-golf-club", "players": 2},
+    {"id": 3184, "name": "Mesquite Golf Club", "alias": "mesquite-golf-club-2", "players": 2},
+    {"id": 3186, "name": "Irving Golf Club", "alias": "irving-golf-club", "players": 2},
+    {"id": 1311, "name": "Prairie Lakes", "alias": "prairie-lakes-golf-course", "players": 2},
+    {"id": 1280, "name": "Champions Circle", "alias": "golf-club-at-champions-circle", "players": 2},
+    {"id": 1391, "name": "Tour 18", "alias": "tour-18-dallas", "players": 2},
+    {"id": 3793, "name": "Wildhorse at Robson Ranch", "alias": "wildhorse-at-robson-ranch", "players": 2},
+    {"id": 6335, "name": "Cleburne Golf Links", "alias": "cleburne-golf-links", "players": 2}
   ],
 
   "alert_thresholds": {
-    "_comment": "Alert when price drops BELOW these dollar amounts for 18 holes + cart.",
-    "_tv_live_reference": "TV current weekday: $69-96 | twilight: $62 | super-twilight: $49",
-    "_tr_live_reference": "Rangers current weekday: $98-150 | twilight: $74-92",
-
     "weekday":       65,
     "friday":        80,
     "weekend":       90,
@@ -31,6 +32,5 @@
   },
 
   "alert_below_average_pct": 20,
-
   "poll_days_ahead": 7
 }
