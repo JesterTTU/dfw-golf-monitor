@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS tee_times (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     course_id       INTEGER NOT NULL,
     course_name     TEXT    NOT NULL,
-    tee_date        TEXT    NOT NULL,        -- YYYY-MM-DD (local Arlington date)
-    tee_time        TEXT    NOT NULL,        -- HH:MM 24-hour (local Arlington time)
+    tee_date        TEXT    NOT NULL,        -- YYYY-MM-DD (local Central time date)
+    tee_time        TEXT    NOT NULL,        -- HH:MM 24-hour (local Central time)
     price           REAL,                   -- dollars (already divided from cents)
     holes           INTEGER,
     rate_name       TEXT,                   -- "18 Holes", "Hot Deal", "Prepaid - 18 Holes"
