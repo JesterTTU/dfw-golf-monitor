@@ -207,7 +207,7 @@ def _build_embed(
             },
         ],
         "footer": {
-            "text": "DFW Golf Monitor • Arlington TX",
+            "text": "DFW Golf Monitor • 16 courses",
         },
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
