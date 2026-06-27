@@ -82,9 +82,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # API constants (confirmed live, no auth needed)
 # ---------------------------------------------------------------------------
-KENNA_BASE   = "https://phx-api-be-east-1b.kenna.io"
-TEEITUP_API  = f"{KENNA_BASE}/v2/tee-times"
-BE_ALIAS     = "city-of-arlington"          # required x-be-alias header value
+KENNA_BASE      = "https://phx-api-be-east-1b.kenna.io"
+TEEITUP_API     = f"{KENNA_BASE}/v2/tee-times"
+DEFAULT_BE_ALIAS = "city-of-arlington"      # fallback x-be-alias header value
 
 # Arlington TX is Central Time
 ARLINGTON_TZ = ZoneInfo("America/Chicago")
@@ -207,6 +207,7 @@ def fetch_tee_times(
     facility_id: int,
     date_str: str,
     session: requests.Session,
+    be_alias: str = DEFAULT_BE_ALIAS,
 ) -> list[dict]:
     """
     Fetch available tee times for one facility on one date.
@@ -216,7 +217,7 @@ def fetch_tee_times(
     """
     params  = {"date": date_str, "facilityIds": facility_id}
     headers = {
-        "x-be-alias": BE_ALIAS,
+        "x-be-alias": be_alias,
         "Accept":     "application/json",
         "User-Agent": "Mozilla/5.0 (compatible; TeeTimeMonitor/1.0)",
     }
@@ -471,10 +472,11 @@ def main() -> int:
         course_id   = course["id"]
         course_name = course["name"]
         players     = course.get("players", 2)
+        be_alias    = course.get("alias", DEFAULT_BE_ALIAS)
 
         for date_str in dates:
             try:
-                slots = fetch_tee_times(course_id, date_str, session)
+                slots = fetch_tee_times(course_id, date_str, session, be_alias=be_alias)
                 logger.info("[%s] %s -> %d teetimes", course_name, date_str, len(slots))
 
                 for slot in slots:
