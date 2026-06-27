@@ -66,6 +66,16 @@ CREATE TABLE IF NOT EXISTS alerts_sent (
 );
 """
 
+CREATE_COURSES = """
+CREATE TABLE IF NOT EXISTS courses (
+    id          INTEGER PRIMARY KEY,   -- TeeItUp / GolfNow facility ID
+    name        TEXT    NOT NULL,
+    alias       TEXT    NOT NULL,      -- TeeItUp booking alias (x-be-alias header)
+    players     INTEGER DEFAULT 2,     -- min players to monitor
+    added_at    TEXT    NOT NULL       -- ISO-8601 UTC timestamp
+);
+"""
+
 CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_tt_course_date    ON tee_times (course_id, tee_date);",
     "CREATE INDEX IF NOT EXISTS idx_tt_days_ahead     ON tee_times (course_id, days_ahead);",
@@ -88,6 +98,7 @@ def init_db() -> None:
     with _connect() as conn:
         conn.execute(CREATE_TEE_TIMES)
         conn.execute(CREATE_ALERTS_SENT)
+        conn.execute(CREATE_COURSES)
         for idx in CREATE_INDEXES:
             conn.execute(idx)
         # Apply migrations — ignore errors for columns that already exist
@@ -97,6 +108,37 @@ def init_db() -> None:
             except sqlite3.OperationalError:
                 pass   # column already exists
     print(f"[db] Initialized database at {DB_PATH}")
+
+
+def upsert_courses(courses: list[dict]) -> None:
+    """Sync the courses table from config.json course list.
+
+    Each dict should have: id, name, alias, players.
+    Existing rows are updated in place; new rows are inserted.
+    """
+    added_at = datetime.now(timezone.utc).isoformat()
+    with _connect() as conn:
+        conn.executemany(
+            """
+            INSERT INTO courses (id, name, alias, players, added_at)
+            VALUES (:id, :name, :alias, :players, :added_at)
+            ON CONFLICT(id) DO UPDATE SET
+                name    = excluded.name,
+                alias   = excluded.alias,
+                players = excluded.players
+            """,
+            [{**c, "added_at": added_at} for c in courses],
+        )
+    print(f"[db] Synced {len(courses)} courses to courses table")
+
+
+def get_courses() -> list[dict]:
+    """Return all rows from the courses table."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM courses ORDER BY name"
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
