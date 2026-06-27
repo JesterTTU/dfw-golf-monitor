@@ -10,7 +10,8 @@
     {"id": 9415, "name": "Firewheel - Old", "alias": "firewheel-golf-park-v2", "players": 2},
     {"id": 9414, "name": "Firewheel - Lakes", "alias": "firewheel-golf-park-v2", "players": 2},
     {"id": 48, "name": "Waterchase", "alias": "waterchase-golf-club", "players": 2},
-    {"id": 3184, "name": "Mesquite Golf Club", "alias": "mesquite-golf-club-2", "players": 2}
+    {"id": 3184, "name": "Mesquite Golf Club", "alias": "mesquite-golf-club-2", "players": 2},
+    {"id": 3186, "name": "Irving Golf Club", "alias": "irving-golf-club", "players": 2}
   ],
   "alert_thresholds": {
     "weekday": 65, "friday": 80, "weekend": 90,
