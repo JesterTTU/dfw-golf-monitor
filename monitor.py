@@ -292,6 +292,7 @@ def process_teetime(
     date_str: str,
     thresholds: dict,
     below_avg_pct: float,
+    hot_deal_pct: float,
     config: dict,
     players_needed: int,
 ) -> None:
@@ -358,25 +359,10 @@ def process_teetime(
     if best_price is None or best_price <= 0 or best_rate is None:
         return
 
-    holes       = best_rate.get("holes")
-    is_hot_deal = best_rate.get("showAsHotDeal", False)
-
-    # --- Check 0: TeeItUp explicitly flagged this as a Hot Deal ---
-    if is_hot_deal:
-        reason = f"Marked 'Hot Deal' by TeeItUp: ${best_price:.2f} for {holes or 18} holes"
-        send_alert(
-            course_id=course_id,
-            course_name=course_name,
-            tee_date=date_str,
-            tee_time=local_hhmm,
-            price=best_price,
-            holes=holes,
-            players_available=max_players,
-            alert_type="hot_deal",
-            reason=reason,
-            config=config,
-        )
-        return  # skip threshold checks to avoid double-alert
+    holes = best_rate.get("holes")
+    # NOTE: we still store TeeItUp's showAsHotDeal flag in the DB for analysis,
+    # but we do NOT use it to trigger alerts — their definition is unreliable
+    # (e.g. 14% off labelled as "Hot Deal"). We use our own pct-based tiers instead.
 
     threshold = get_threshold(date_str, local_hhmm, thresholds)
 
@@ -400,7 +386,11 @@ def process_teetime(
         )
         return
 
-    # --- Check 2: below rolling 7-day average ---
+    # --- Check 2: percentage below rolling 7-day average (our own hot deal definition) ---
+    # Two tiers:
+    #   hot_deal_pct  (default 25%) → "hot_deal"  alert → hot-deals Discord channel
+    #   below_avg_pct (default 20%) → "below_average" alert → main Discord channel
+    # Checked high→low so the stronger discount wins.
     try:
         hour = int(local_hhmm[:2])
         dow  = date.fromisoformat(date_str).weekday()
@@ -410,11 +400,30 @@ def process_teetime(
     avg = get_rolling_average(course_id, hour, dow, days=7)
     if avg is not None:
         pct_below = (avg - best_price) / avg * 100
-        if pct_below >= below_avg_pct:
+        dow_name  = date.fromisoformat(date_str).strftime('%A')
+
+        if pct_below >= hot_deal_pct:
             reason = (
                 f"${best_price:.2f} is {pct_below:.0f}% below 7-day avg "
-                f"of ${avg:.2f} for {local_hhmm} on "
-                f"{date.fromisoformat(date_str).strftime('%A')}s"
+                f"of ${avg:.2f} ({dow_name} {local_hhmm}) — "
+                f"exceeds hot-deal threshold of {hot_deal_pct:.0f}%"
+            )
+            send_alert(
+                course_id=course_id,
+                course_name=course_name,
+                tee_date=date_str,
+                tee_time=local_hhmm,
+                price=best_price,
+                holes=holes,
+                players_available=max_players,
+                alert_type="hot_deal",
+                reason=reason,
+                config=config,
+            )
+        elif pct_below >= below_avg_pct:
+            reason = (
+                f"${best_price:.2f} is {pct_below:.0f}% below 7-day avg "
+                f"of ${avg:.2f} for {local_hhmm} on {dow_name}s"
             )
             send_alert(
                 course_id=course_id,
@@ -459,6 +468,7 @@ def main() -> int:
     days_ahead    = int(config.get("poll_days_ahead", 7))
     thresholds    = config.get("alert_thresholds", {})
     below_avg_pct = float(config.get("alert_below_average_pct", 20))
+    hot_deal_pct  = float(config.get("hot_deal_pct", 25))
     dates         = dates_to_fetch(days_ahead)
 
     logger.info("Courses to check : %s", [c["name"] for c in courses])
@@ -488,6 +498,7 @@ def main() -> int:
                         date_str=date_str,
                         thresholds=thresholds,
                         below_avg_pct=below_avg_pct,
+                        hot_deal_pct=hot_deal_pct,
                         config=config,
                         players_needed=players,
                     )
