@@ -66,7 +66,7 @@ from typing import Optional
 
 import requests
 
-from db import init_db, insert_tee_time, get_rolling_average
+from db import init_db, insert_tee_time, get_rolling_average, upsert_courses
 from alerts import send_alert
 
 # ---------------------------------------------------------------------------
@@ -455,6 +455,7 @@ def main() -> int:
     init_db()
 
     courses       = config.get("courses", [])
+    upsert_courses(courses)   # keep courses table in sync with config
     days_ahead    = int(config.get("poll_days_ahead", 7))
     thresholds    = config.get("alert_thresholds", {})
     below_avg_pct = float(config.get("alert_below_average_pct", 20))
