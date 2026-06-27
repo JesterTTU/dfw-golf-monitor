@@ -1,61 +1,19 @@
 {
   "discord_webhook_url": "https://discord.com/api/webhooks/1519554853456838738/27ug6g7MyA4kG_7SIVPLgfG0hA8RQJ9jTQNPhWrPe374Ealf32J7MeTsZtobqe4IY0b9",
   "courses": [
-    {
-      "id": 1315,
-      "name": "Tierra Verde",
-      "alias": "city-of-arlington",
-      "players": 2
-    },
-    {
-      "id": 1319,
-      "name": "Texas Rangers",
-      "alias": "city-of-arlington",
-      "players": 2
-    },
-    {
-      "id": 4992,
-      "name": "Lake Arlington",
-      "alias": "city-of-arlington",
-      "players": 2
-    },
-    {
-      "id": 846,
-      "name": "Tangle Ridge",
-      "alias": "tangle-ridge-golf-club",
-      "players": 2
-    },
-    {
-      "id": 1307,
-      "name": "Pecan Hollow",
-      "alias": "pecan-hollow-golf-course",
-      "players": 2
-    },
-    {
-      "id": 9413,
-      "name": "Firewheel - Bridges",
-      "alias": "firewheel-golf-park-v2",
-      "players": 2
-    },
-    {
-      "id": 9415,
-      "name": "Firewheel - Old",
-      "alias": "firewheel-golf-park-v2",
-      "players": 2
-    },
-    {
-      "id": 9414,
-      "name": "Firewheel - Lakes",
-      "alias": "firewheel-golf-park-v2",
-      "players": 2
-    }
+    {"id": 1315, "name": "Tierra Verde", "alias": "city-of-arlington", "players": 2},
+    {"id": 1319, "name": "Texas Rangers", "alias": "city-of-arlington", "players": 2},
+    {"id": 4992, "name": "Lake Arlington", "alias": "city-of-arlington", "players": 2},
+    {"id": 846, "name": "Tangle Ridge", "alias": "tangle-ridge-golf-club", "players": 2},
+    {"id": 1307, "name": "Pecan Hollow", "alias": "pecan-hollow-golf-course", "players": 2},
+    {"id": 9413, "name": "Firewheel - Bridges", "alias": "firewheel-golf-park-v2", "players": 2},
+    {"id": 9415, "name": "Firewheel - Old", "alias": "firewheel-golf-park-v2", "players": 2},
+    {"id": 9414, "name": "Firewheel - Lakes", "alias": "firewheel-golf-park-v2", "players": 2},
+    {"id": 48, "name": "Waterchase", "alias": "waterchase-golf-club", "players": 2}
   ],
   "alert_thresholds": {
-    "weekday": 65,
-    "friday": 80,
-    "weekend": 90,
-    "twilight_any": 50,
-    "super_twilight": 40
+    "weekday": 65, "friday": 80, "weekend": 90,
+    "twilight_any": 50, "super_twilight": 40
   },
   "alert_below_average_pct": 20,
   "poll_days_ahead": 7,
