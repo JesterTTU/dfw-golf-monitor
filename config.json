@@ -1,28 +1,112 @@
 {
   "discord_webhook_url": "https://discord.com/api/webhooks/1519554853456838738/27ug6g7MyA4kG_7SIVPLgfG0hA8RQJ9jTQNPhWrPe374Ealf32J7MeTsZtobqe4IY0b9",
   "courses": [
-    {"id": 1315, "name": "Tierra Verde", "alias": "city-of-arlington", "players": 2},
-    {"id": 1319, "name": "Texas Rangers", "alias": "city-of-arlington", "players": 2},
-    {"id": 4992, "name": "Lake Arlington", "alias": "city-of-arlington", "players": 2},
-    {"id": 846, "name": "Tangle Ridge", "alias": "tangle-ridge-golf-club", "players": 2},
-    {"id": 1307, "name": "Pecan Hollow", "alias": "pecan-hollow-golf-course", "players": 2},
-    {"id": 9413, "name": "Firewheel - Bridges", "alias": "firewheel-golf-park-v2", "players": 2},
-    {"id": 9415, "name": "Firewheel - Old", "alias": "firewheel-golf-park-v2", "players": 2},
-    {"id": 9414, "name": "Firewheel - Lakes", "alias": "firewheel-golf-park-v2", "players": 2},
-    {"id": 48, "name": "Waterchase", "alias": "waterchase-golf-club", "players": 2},
-    {"id": 3184, "name": "Mesquite Golf Club", "alias": "mesquite-golf-club-2", "players": 2},
-    {"id": 3186, "name": "Irving Golf Club", "alias": "irving-golf-club", "players": 2},
-    {"id": 1311, "name": "Prairie Lakes", "alias": "prairie-lakes-golf-course", "players": 2},
-    {"id": 1280, "name": "Champions Circle", "alias": "golf-club-at-champions-circle", "players": 2},
-    {"id": 1391, "name": "Tour 18", "alias": "tour-18-dallas", "players": 2},
-    {"id": 3793, "name": "Wildhorse at Robson Ranch", "alias": "wildhorse-at-robson-ranch", "players": 2},
-    {"id": 6335, "name": "Cleburne Golf Links", "alias": "cleburne-golf-links", "players": 2}
+    {
+      "id": 1315,
+      "name": "Tierra Verde",
+      "alias": "city-of-arlington",
+      "players": 2
+    },
+    {
+      "id": 1319,
+      "name": "Texas Rangers",
+      "alias": "city-of-arlington",
+      "players": 2
+    },
+    {
+      "id": 4992,
+      "name": "Lake Arlington",
+      "alias": "city-of-arlington",
+      "players": 2
+    },
+    {
+      "id": 846,
+      "name": "Tangle Ridge",
+      "alias": "tangle-ridge-golf-club",
+      "players": 2
+    },
+    {
+      "id": 1307,
+      "name": "Pecan Hollow",
+      "alias": "pecan-hollow-golf-course",
+      "players": 2
+    },
+    {
+      "id": 9413,
+      "name": "Firewheel - Bridges",
+      "alias": "firewheel-golf-park-v2",
+      "players": 2
+    },
+    {
+      "id": 9415,
+      "name": "Firewheel - Old",
+      "alias": "firewheel-golf-park-v2",
+      "players": 2
+    },
+    {
+      "id": 9414,
+      "name": "Firewheel - Lakes",
+      "alias": "firewheel-golf-park-v2",
+      "players": 2
+    },
+    {
+      "id": 48,
+      "name": "Waterchase",
+      "alias": "waterchase-golf-club",
+      "players": 2
+    },
+    {
+      "id": 3184,
+      "name": "Mesquite Golf Club",
+      "alias": "mesquite-golf-club-2",
+      "players": 2
+    },
+    {
+      "id": 3186,
+      "name": "Irving Golf Club",
+      "alias": "irving-golf-club",
+      "players": 2
+    },
+    {
+      "id": 1311,
+      "name": "Prairie Lakes",
+      "alias": "prairie-lakes-golf-course",
+      "players": 2
+    },
+    {
+      "id": 1280,
+      "name": "Champions Circle",
+      "alias": "golf-club-at-champions-circle",
+      "players": 2
+    },
+    {
+      "id": 1391,
+      "name": "Tour 18",
+      "alias": "tour-18-dallas",
+      "players": 2
+    },
+    {
+      "id": 3793,
+      "name": "Wildhorse at Robson Ranch",
+      "alias": "wildhorse-at-robson-ranch",
+      "players": 2
+    },
+    {
+      "id": 6335,
+      "name": "Cleburne Golf Links",
+      "alias": "cleburne-golf-links",
+      "players": 2
+    }
   ],
   "alert_thresholds": {
-    "weekday": 65, "friday": 80, "weekend": 90,
-    "twilight_any": 50, "super_twilight": 40
+    "weekday": 65,
+    "friday": 80,
+    "weekend": 90,
+    "twilight_any": 50,
+    "super_twilight": 40
   },
   "alert_below_average_pct": 20,
+  "hot_deal_pct": 25,
   "poll_days_ahead": 7,
   "discord_webhook_hot_deals_url": "https://discord.com/api/webhooks/1520517700630220923/hiVa6paMXqK6tg-5_3JMSt7bi9E8BSiRQM122SF4zPv4vOwwvgdCImevGoD2VzrWSaoO"
 }
