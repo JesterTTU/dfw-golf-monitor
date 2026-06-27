@@ -526,8 +526,9 @@ function fmtTime(t) {
   } catch { return t; }
 }
 function bookingUrl(courseId, date) {
-  if (!courseId || !date) return null;
-  return `https://city-of-arlington.book.teeitup.com/teetimes?course=${courseId}&date=${date}`;
+  if (!courseId) return null;
+  const alias = COURSE_ALIASES[courseId] || 'city-of-arlington';
+  return `https://${alias}.book.teeitup.golf`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
