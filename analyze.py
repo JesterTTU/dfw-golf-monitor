@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-analyze.py — Price pattern analysis for the Arlington golf tee-time monitor.
+analyze.py — Price pattern analysis for the DFW golf tee-time monitor.
 
 Usage:
     python analyze.py                     # full report to stdout
