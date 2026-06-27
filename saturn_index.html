@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DFW Golf Monitor</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -16,20 +18,22 @@
     nav {
       background: #1a1d27; border-bottom: 1px solid #2d3748;
       padding: 0 1.5rem; display: flex; align-items: center; gap: 0; height: 52px;
+      position: sticky; top: 0; z-index: 500;
     }
     nav .logo { font-weight: 700; font-size: 1rem; color: #68d391; margin-right: 2rem; white-space: nowrap; }
     .tab-btn {
       background: none; border: none; color: #a0aec0;
       padding: 0 1.1rem; height: 52px; cursor: pointer; font-size: 0.875rem;
       border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
-      white-space: nowrap;
+      white-space: nowrap; touch-action: manipulation;
     }
-    .tab-btn:hover   { color: #e2e8f0; }
-    .tab-btn.active  { color: #68d391; border-bottom-color: #68d391; }
+    .tab-btn:hover  { color: #e2e8f0; }
+    .tab-btn.active { color: #68d391; border-bottom-color: #68d391; }
     .nav-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
     .sync-btn {
       background: #2d3748; border: 1px solid #4a5568; border-radius: 5px;
-      color: #a0aec0; padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.8rem;
+      color: #a0aec0; padding: 0.5rem 0.9rem; cursor: pointer; font-size: 0.8rem;
+      min-height: 36px; touch-action: manipulation; white-space: nowrap;
     }
     .sync-btn:hover { color: #e2e8f0; background: #374151; }
     #sync-status { font-size: 0.75rem; color: #718096; }
@@ -37,6 +41,7 @@
     /* ── Panels ── */
     .panel { display: none; padding: 1.5rem; }
     .panel.active { display: block; }
+    .panel.map-panel { padding: 0; position: relative; }
 
     /* ── Cards / stats row ── */
     .stat-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
@@ -44,6 +49,12 @@
       background: #1a1d27; border: 1px solid #2d3748; border-radius: 8px;
       padding: 1rem 1.25rem; min-width: 140px; flex: 1;
     }
+    .stat-card.clickable {
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      user-select: none; touch-action: manipulation;
+    }
+    .stat-card.clickable:hover { background: #1e2433; border-color: #4a5568; }
+    .stat-card.clickable.filter-active { border-color: #fc8181; background: #2d1a1a; }
     .stat-card .label { font-size: 0.72rem; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
     .stat-card .value { font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; }
     .stat-card .value.green  { color: #68d391; }
@@ -80,12 +91,14 @@
     tr.deal   td:first-child { border-left: 3px solid #68d391; }
     tr.normal td:first-child { border-left: 3px solid #ecc94b; }
     tr.pricey td:first-child { border-left: 3px solid #4a5568; }
-    .badge {
-      border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; font-weight: 600;
-    }
-    .badge-deal    { background: #22543d; color: #68d391; }
-    .badge-normal  { background: #5f4a00; color: #ecc94b; }
-    .badge-pricey  { background: #2d3748; color: #718096; }
+    .badge { border-radius: 4px; padding: 2px 7px; font-size: 0.72rem; font-weight: 600; }
+    .badge-deal   { background: #22543d; color: #68d391; }
+    .badge-normal { background: #5f4a00; color: #ecc94b; }
+    .badge-pricey { background: #2d3748; color: #718096; }
+
+    /* ── Booking link in price cell ── */
+    a.book-link { color: inherit; text-decoration: none; touch-action: manipulation; }
+    a.book-link:hover strong { color: #68d391; text-decoration: underline; }
 
     /* ── Controls row ── */
     .controls {
@@ -95,11 +108,14 @@
     .controls label { font-size: 0.82rem; color: #a0aec0; }
     .controls select, .controls input {
       background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;
-      border-radius: 5px; padding: 0.3rem 0.6rem; font-size: 0.82rem;
+      border-radius: 5px; padding: 0.45rem 0.7rem; font-size: 1rem;
+      min-height: 36px; touch-action: manipulation;
     }
+    #f-search { width: 120px; }
     .toggle-btn {
       background: #2d3748; border: 1px solid #4a5568; border-radius: 5px;
-      color: #e2e8f0; padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.82rem;
+      color: #e2e8f0; padding: 0.5rem 0.9rem; cursor: pointer; font-size: 0.82rem;
+      min-height: 36px; touch-action: manipulation; white-space: nowrap;
     }
     .toggle-btn.active { background: #276749; border-color: #68d391; color: #68d391; }
 
@@ -109,13 +125,11 @@
       border-bottom: 1px solid #2d3748; font-size: 0.82rem;
     }
     .run-row:last-child { border-bottom: none; }
-    .pill {
-      border-radius: 99px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
-    }
-    .pill-success  { background: #22543d; color: #68d391; }
-    .pill-failure  { background: #742a2a; color: #fc8181; }
-    .pill-running  { background: #1a365d; color: #63b3ed; }
-    .pill-unknown  { background: #2d3748; color: #a0aec0; }
+    .pill { border-radius: 99px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600; }
+    .pill-success { background: #22543d; color: #68d391; }
+    .pill-failure { background: #742a2a; color: #fc8181; }
+    .pill-running { background: #1a365d; color: #63b3ed; }
+    .pill-unknown { background: #2d3748; color: #a0aec0; }
 
     /* ── Heatmap grid ── */
     .heatmap-wrap { overflow-x: auto; }
@@ -126,13 +140,180 @@
     }
     .hm-header { background: none; color: #718096; font-weight: 600; }
 
+    /* ── Map panel ── */
+    #leaflet-map { height: calc(100vh - 52px); width: 100%; }
+    .map-overlay {
+      position: absolute; z-index: 1000;
+      background: rgba(15,17,23,0.92); backdrop-filter: blur(4px);
+      border: 1px solid #2d3748; border-radius: 8px;
+    }
+    .map-filter-bar {
+      top: 12px; left: 12px; padding: 8px 10px;
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+    }
+    .map-filter-btn {
+      padding: 8px 14px; border-radius: 20px; border: 1px solid #4a5568;
+      background: transparent; color: #a0aec0; font-size: 0.75rem; font-weight: 700;
+      cursor: pointer; transition: all 0.12s; touch-action: manipulation;
+      min-height: 36px; display: inline-flex; align-items: center;
+    }
+    .map-filter-btn:hover { color: #e2e8f0; border-color: #718096; }
+    .map-filter-btn.fb-all.on  { background: #276749; border-color: #68d391; color: #68d391; }
+    .map-filter-btn.fb-muni.on { background: #1a365d; border-color: #63b3ed; color: #63b3ed; }
+    .map-filter-btn.fb-pub.on  { background: #22543d; border-color: #68d391; color: #68d391; }
+    .map-filter-btn.fb-semi.on { background: #7b341e; border-color: #f6ad55; color: #f6ad55; }
+    .map-live-panel {
+      bottom: 16px; right: 12px; padding: 12px 14px; min-width: 210px;
+    }
+    .map-live-panel h4 { font-size: 0.7rem; color: #68d391; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+    .mlp-course { margin-bottom: 10px; }
+    .mlp-course:last-child { margin-bottom: 0; }
+    .mlp-name { font-size: 0.78rem; font-weight: 600; color: #e2e8f0; margin-bottom: 3px; }
+    .mlp-row  { font-size: 0.75rem; color: #a0aec0; line-height: 1.5; }
+    .mlp-row a { color: #68d391; text-decoration: none; font-weight: 600; }
+    .mlp-hot  { color: #fc8181; font-weight: 700; }
+    .map-count-badge {
+      top: 12px; right: 12px; padding: 5px 12px;
+      font-size: 0.75rem; font-weight: 700; color: #a0aec0;
+    }
+
+    /* ── Leaflet dark popup ── */
+    .leaflet-popup-content-wrapper {
+      background: #1a1d27; border: 1px solid #2d3748; color: #e2e8f0;
+      border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .leaflet-popup-tip-container { display: none; }
+    .leaflet-popup-content { margin: 0; min-width: 230px; max-width: 290px; }
+    .leaflet-top.leaflet-left { top: 52px !important; }
+    .mp-header { padding: 9px 13px 7px; border-radius: 8px 8px 0 0; font-size: 12px; font-weight: 700; line-height: 1.3; }
+    .mp-header.muni { background: #1a365d; color: #63b3ed; }
+    .mp-header.pub  { background: #22543d; color: #68d391; }
+    .mp-header.semi { background: #7b341e; color: #f6ad55; }
+    .mp-header.monitored { background: #1d3a22; color: #68d391; border-bottom: 2px solid #68d391; }
+    .mp-body { padding: 9px 13px; font-size: 11px; line-height: 1.7; }
+    .mp-body .r { display: flex; gap: 6px; }
+    .mp-body .l { color: #718096; min-width: 64px; font-weight: 600; }
+    .mp-body .v { color: #e2e8f0; flex: 1; }
+    .mp-body a { color: #68d391; text-decoration: none; font-weight: 600; }
+    .mp-foot { padding: 0 13px 10px; }
+    .mp-book-btn {
+      display: block; text-align: center; padding: 5px; background: #22543d;
+      border-radius: 5px; color: #68d391; font-size: 11px; font-weight: 700;
+      text-decoration: none; margin-top: 4px;
+    }
+    .mp-book-btn:hover { background: #276749; }
+
+    /* ── Monitored marker pulse ── */
+    @keyframes mPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50%       { transform: scale(1.25); opacity: 0.8; }
+    }
+    .mon-marker { animation: mPulse 2.2s ease-in-out infinite; display: block; }
+
     /* ── Loading / error ── */
     .loading-msg { text-align: center; padding: 3rem; color: #718096; }
     .error-msg   { text-align: center; padding: 2rem; color: #fc8181; font-size: 0.9rem; }
 
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      .mon-marker { animation: none !important; }
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    /* ── Focus rings (keyboard nav) ── */
+    :focus-visible {
+      outline: 2px solid #68d391;
+      outline-offset: 2px;
+    }
+    button:focus-visible, a:focus-visible,
+    select:focus-visible, input:focus-visible {
+      outline: 2px solid #68d391;
+      outline-offset: 2px;
+      border-radius: 3px;
+    }
+
+    /* ── Mobile (≤640px) ── */
     @media (max-width: 640px) {
-      nav { padding: 0 0.75rem; }
+      /* Nav: hide tab labels, show icons only — keeps bar compact */
+      nav {
+        padding: 0 0.4rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      nav::-webkit-scrollbar { display: none; }
+      nav .logo { font-size: 0.85rem; margin-right: 0.6rem; }
+      .tl { display: none; }
+      .ti { font-size: 1.1rem; line-height: 1; }
+      .tab-btn { padding: 0 0.7rem; }
+      #sync-status { display: none; }
+
+      /* Panel */
       .panel { padding: 0.75rem; }
+
+      /* Stat cards: explicit 2-column grid */
+      .stat-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .stat-card { min-width: 0; padding: 0.75rem 1rem; }
+      .stat-card .value { font-size: 1.25rem; }
+      .stat-card .label { font-size: 0.68rem; }
+
+      /* Controls: vertical stack, full-width inputs */
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 0.75rem;
+        gap: 0.5rem;
+      }
+      .controls label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.75rem;
+      }
+      .controls select,
+      .controls input { width: 100%; }
+      #f-search { width: 100%; }
+      #btn-deals { align-self: flex-start; }
+      #row-count { margin-left: 0 !important; font-size: 0.72rem; }
+
+      /* Table: hide the least-critical columns */
+      #main-table th:nth-child(5), #main-table td:nth-child(5), /* Holes      */
+      #main-table th:nth-child(6), #main-table td:nth-child(6), /* Spots      */
+      #main-table th:nth-child(8), #main-table td:nth-child(8), /* Hot Deal   */
+      #main-table th:nth-child(9), #main-table td:nth-child(9)  /* Fetched    */
+      { display: none; }
+      td { padding: 0.45rem 0.6rem; font-size: 0.8rem; }
+      thead th { padding: 0.55rem 0.6rem; font-size: 0.78rem; }
+
+      /* Charts: full-width, stacked */
+      .chart-row { flex-direction: column; }
+      .chart-box { min-width: 0 !important; }
+
+      /* Map overlays: tighter on small screens */
+      .map-filter-bar { top: 8px; left: 8px; padding: 6px 8px; gap: 4px; }
+      .map-filter-btn { padding: 6px 11px; min-height: 32px; }
+      .map-count-badge { top: 8px; right: 8px; font-size: 0.7rem; padding: 4px 8px; }
+      .map-live-panel {
+        bottom: 8px; right: 8px;
+        min-width: 0;
+        max-width: calc(100vw - 100px);
+        width: 180px;
+        padding: 10px 12px;
+        font-size: 0.72rem;
+      }
+      .mlp-name { font-size: 0.74rem; }
+
+      /* Health run rows */
+      .run-row { flex-wrap: wrap; gap: 0.4rem; font-size: 0.78rem; }
+      .run-row a { margin-left: 0 !important; }
     }
   </style>
 </head>
@@ -140,9 +321,10 @@
 
 <nav>
   <span class="logo">⛳ Golf Monitor</span>
-  <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
-  <button class="tab-btn"        onclick="switchTab('trends')">📈 Trends</button>
-  <button class="tab-btn"        onclick="switchTab('health')">🔧 Health</button>
+  <button class="tab-btn active" onclick="switchTab('dashboard')"><span class="ti">📊</span><span class="tl"> Dashboard</span></button>
+  <button class="tab-btn"        onclick="switchTab('trends')"><span class="ti">📈</span><span class="tl"> Trends</span></button>
+  <button class="tab-btn"        onclick="switchTab('health')"><span class="ti">🔧</span><span class="tl"> Health</span></button>
+  <button class="tab-btn"        onclick="switchTab('map')"><span class="ti">🗺️</span><span class="tl"> Map</span></button>
   <div class="nav-right">
     <button class="sync-btn" onclick="manualSync()">↻ Sync</button>
     <span id="sync-status"></span>
@@ -152,17 +334,32 @@
 <!-- ═══════════════════════════════════════════════════════════ DASHBOARD -->
 <div id="panel-dashboard" class="panel active">
   <div class="stat-row" id="dash-stats">
-    <div class="stat-card"><div class="label">Total Rows</div><div class="value blue" id="s-total">—</div></div>
-    <div class="stat-card"><div class="label">Last Poll</div><div class="value green" id="s-poll">—</div></div>
-    <div class="stat-card"><div class="label">Deals Today</div><div class="value yellow" id="s-deals">—</div></div>
-    <div class="stat-card"><div class="label">Hot Deals</div><div class="value red" id="s-hot">—</div></div>
+    <div class="stat-card">
+      <div class="label">Tee Times Stored</div>
+      <div class="value blue" id="s-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Data Through</div>
+      <div class="value green" id="s-poll">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Deals Today</div>
+      <div class="value yellow" id="s-deals">—</div>
+    </div>
+    <!-- Clickable: filters table to hot deals only -->
+    <div class="stat-card clickable" id="card-hot"
+         onclick="filterHotDeals()"
+         title="Click to filter table to TeeItUp Hot Deals only">
+      <div class="label">🔥 Hot Deals <span style="font-size:0.65rem;opacity:0.6">(tap to filter)</span></div>
+      <div class="value red" id="s-hot">—</div>
+    </div>
   </div>
 
   <div class="controls">
     <label>Course <select id="f-course"><option value="">All</option></select></label>
     <label>From <input type="date" id="f-from" /></label>
     <label>To   <input type="date" id="f-to"   /></label>
-    <label>Search <input type="text" id="f-search" placeholder="time, price…" style="width:110px" /></label>
+    <label>Search <input type="text" id="f-search" placeholder="time, price…" /></label>
     <button class="toggle-btn" id="btn-deals" onclick="toggleDeals()">⚡ Deals only</button>
     <span style="margin-left:auto;font-size:0.78rem;color:#718096" id="row-count"></span>
   </div>
@@ -175,7 +372,7 @@
         <th data-col="course_name">Course</th>
         <th data-col="tee_date">Date</th>
         <th data-col="tee_time">Time</th>
-        <th data-col="price">Price</th>
+        <th data-col="price">Price ↗</th>
         <th data-col="holes">Holes</th>
         <th data-col="players_available">Spots</th>
         <th data-col="status">Status</th>
@@ -246,14 +443,35 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════ MAP -->
+<div id="panel-map" class="panel map-panel">
+  <!-- Filter bar (overlaid on map) -->
+  <div class="map-overlay map-filter-bar">
+    <button class="map-filter-btn fb-all on"  onclick="mapFilter('All',  this)">All</button>
+    <button class="map-filter-btn fb-muni"     onclick="mapFilter('Municipal', this)">Municipal</button>
+    <button class="map-filter-btn fb-pub"      onclick="mapFilter('Public', this)">Public</button>
+    <button class="map-filter-btn fb-semi"     onclick="mapFilter('Semi-Private', this)">Semi-Private</button>
+  </div>
+  <!-- Course count badge -->
+  <div class="map-overlay map-count-badge" id="map-count">—</div>
+  <!-- Live prices panel -->
+  <div class="map-overlay map-live-panel" id="map-live">
+    <h4>Live Prices</h4>
+    <div id="map-live-body" style="color:#718096;font-size:0.75rem">Load dashboard for prices</div>
+  </div>
+  <!-- Leaflet map -->
+  <div id="leaflet-map"></div>
+</div>
+
 <script>
-// ─── Tab switching ─────────────────────────────────────────────────────────
+// ─── Tab switching ──────────────────────────────────────────────────────────
 let currentTab = 'dashboard';
-const loaded   = { dashboard: false, trends: false, health: false };
+const loaded   = { dashboard: false, trends: false, health: false, map: false };
+const TABS     = ['dashboard', 'trends', 'health', 'map'];
 
 function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['dashboard','trends','health'][i] === tab);
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', TABS[i] === tab);
   });
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
@@ -262,10 +480,16 @@ function switchTab(tab) {
     if (tab === 'dashboard') loadDashboard();
     if (tab === 'trends')    loadTrends();
     if (tab === 'health')    loadHealth();
+    if (tab === 'map')       loadMap();
+  }
+  // Leaflet needs invalidateSize after becoming visible
+  if (tab === 'map' && window._leafletMap) {
+    setTimeout(() => window._leafletMap.invalidateSize(), 50);
+    updateMapLivePanel();
   }
 }
 
-// ─── Sync button ───────────────────────────────────────────────────────────
+// ─── Sync button ────────────────────────────────────────────────────────────
 async function manualSync() {
   const el = document.getElementById('sync-status');
   el.textContent = 'Syncing…';
@@ -275,7 +499,6 @@ async function manualSync() {
     el.textContent = d.ok
       ? `✓ +${d.new} new rows (${fmtRelTime(new Date())})`
       : `✗ ${d.error}`;
-    // Refresh whichever tab is active
     loaded[currentTab] = false;
     if (currentTab === 'dashboard') loadDashboard();
     if (currentTab === 'trends')    loadTrends();
@@ -285,7 +508,7 @@ async function manualSync() {
   }
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 function fmtRelTime(dt) {
   const diff = Math.floor((Date.now() - new Date(dt)) / 1000);
   if (diff < 60)   return `${diff}s ago`;
@@ -302,15 +525,20 @@ function fmtTime(t) {
     return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${h >= 12 ? 'PM' : 'AM'}`;
   } catch { return t; }
 }
+function bookingUrl(courseId, date) {
+  if (!courseId || !date) return null;
+  return `https://city-of-arlington.book.teeitup.com/teetimes?course=${courseId}&date=${date}`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
-let allRows    = [];
-let thresholds = {};
-let sortCol    = 'tee_date';
-let sortDir    = 'asc';
-let dealsOnly  = false;
+let allRows     = [];
+let thresholds  = {};
+let sortCol     = 'tee_date';
+let sortDir     = 'asc';
+let dealsOnly   = false;
+let hotDealsOnly = false;
 
 function getThreshold(dateStr, timeStr) {
   const h   = parseInt(timeStr.slice(0,2), 10);
@@ -332,7 +560,21 @@ function rowStatus(r) {
 
 function toggleDeals() {
   dealsOnly = !dealsOnly;
+  if (dealsOnly) {
+    hotDealsOnly = false;
+    document.getElementById('card-hot').classList.remove('filter-active');
+  }
   document.getElementById('btn-deals').classList.toggle('active', dealsOnly);
+  renderTable();
+}
+
+function filterHotDeals() {
+  hotDealsOnly = !hotDealsOnly;
+  if (hotDealsOnly) {
+    dealsOnly = false;
+    document.getElementById('btn-deals').classList.remove('active');
+  }
+  document.getElementById('card-hot').classList.toggle('filter-active', hotDealsOnly);
   renderTable();
 }
 
@@ -346,7 +588,8 @@ function renderTable() {
     if (course && r.course_name !== course) return false;
     if (from && r.tee_date < from) return false;
     if (to   && r.tee_date > to)   return false;
-    if (dealsOnly && rowStatus(r) !== 'deal') return false;
+    if (dealsOnly    && rowStatus(r) !== 'deal') return false;
+    if (hotDealsOnly && !r.is_hot_deal)           return false;
     if (search) {
       const hay = [r.course_name, r.tee_date, r.tee_time,
         r.price != null ? '$'+r.price : ''].join(' ').toLowerCase();
@@ -369,23 +612,36 @@ function renderTable() {
   for (const r of rows) {
     const st  = rowStatus(r);
     const thr = getThreshold(r.tee_date, r.tee_time);
+    const url = bookingUrl(r.course_id, r.tee_date);
+    const priceInner = r.price != null
+      ? `<strong>$${r.price.toFixed(2)}</strong>${thr < 999 ? ` <span style="font-size:0.72rem;color:#718096">/ $${thr}</span>` : ''}`
+      : '<strong>—</strong>';
+    const priceCell = url
+      ? `<a href="${url}" target="_blank" rel="noopener" class="book-link" title="Book on TeeItUp">${priceInner} <span style="font-size:0.65rem;opacity:0.5">↗</span></a>`
+      : priceInner;
+
     const tr  = document.createElement('tr');
     tr.className = st;
     tr.innerHTML = `
       <td>${r.course_name ?? '—'}</td>
       <td>${fmtDate(r.tee_date)}</td>
       <td>${fmtTime(r.tee_time)}</td>
-      <td><strong>$${r.price?.toFixed(2) ?? '—'}</strong>${thr < 999 ? ` <span style="font-size:0.72rem;color:#718096">/ $${thr}</span>` : ''}</td>
+      <td>${priceCell}</td>
       <td>${r.holes ?? '—'}</td>
       <td>${r.players_available ?? '—'}</td>
       <td><span class="badge badge-${st}">${st.charAt(0).toUpperCase()+st.slice(1)}</span></td>
-      <td>${r.is_hot_deal ? '🔥' : '—'}</td>
+      <td>${r.is_hot_deal ? '🔥 Hot' : '—'}</td>
       <td style="color:#718096;font-size:0.75rem">${new Date(r.fetched_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}</td>
     `;
     tbody.appendChild(tr);
   }
 
   document.getElementById('main-table').style.display = rows.length ? 'table' : 'none';
+  if (!rows.length && (dealsOnly || hotDealsOnly)) {
+    const msg = hotDealsOnly ? 'No hot deals in current date range' : 'No deals in current date range';
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:#718096">${msg}</td></tr>`;
+    document.getElementById('main-table').style.display = 'table';
+  }
 }
 
 async function loadDashboard() {
@@ -397,18 +653,15 @@ async function loadDashboard() {
     thresholds = data.thresholds ?? {};
     allRows    = data.tee_times  ?? [];
 
-    // Stats row
-    const today = new Date().toISOString().slice(0,10);
+    const today      = new Date().toISOString().slice(0,10);
     const dealsToday = allRows.filter(r => r.tee_date === today && rowStatus(r) === 'deal').length;
     const hotDeals   = allRows.filter(r => r.is_hot_deal).length;
 
     document.getElementById('s-total').textContent = allRows.length.toLocaleString();
-    document.getElementById('s-poll').textContent  = data.last_fetched
-      ? fmtRelTime(data.last_fetched) : '—';
+    document.getElementById('s-poll').textContent  = data.last_fetched ? fmtRelTime(data.last_fetched) : '—';
     document.getElementById('s-deals').textContent = dealsToday;
     document.getElementById('s-hot').textContent   = hotDeals;
 
-    // Populate course filter
     const sel = document.getElementById('f-course');
     sel.innerHTML = '<option value="">All</option>';
     [...new Set(allRows.map(r => r.course_name).filter(Boolean))].sort().forEach(n => {
@@ -416,15 +669,18 @@ async function loadDashboard() {
       sel.appendChild(o);
     });
 
-    // Default date range
-    const dates = allRows.map(r => r.tee_date).sort();
-    if (dates.length) {
-      document.getElementById('f-from').value = dates[0];
-      document.getElementById('f-to').value   = dates[dates.length - 1];
-    }
+    const _today = new Date();
+    const _todayStr = _today.getFullYear() + "-"
+      + String(_today.getMonth() + 1).padStart(2, "0") + "-"
+      + String(_today.getDate()).padStart(2, "0");
+    document.getElementById('f-from').value = _todayStr;
+    document.getElementById('f-to').value   = _todayStr;
 
     document.getElementById('dash-loading').style.display = 'none';
     renderTable();
+
+    // Refresh map live panel if map is open
+    if (currentTab === 'map') updateMapLivePanel();
 
   } catch(e) {
     document.getElementById('dash-loading').style.display = 'none';
@@ -477,7 +733,6 @@ async function loadTrends() {
     const d = await fetch('/api/trends').then(r => r.json());
     if (d.error) throw new Error(d.error);
 
-    // --- Price decay chart ---
     const courses = [...new Set(d.decay.map(r => r.course_name))];
     const buckets = [...new Set(d.decay.map(r => r.bucket))];
     buildChart('chart-decay', 'line', buckets,
@@ -488,12 +743,10 @@ async function loadTrends() {
           return r ? r.avg_price : null;
         }),
         borderColor: COLORS[i], backgroundColor: COLORS[i] + '22',
-        tension: 0.3, fill: false, spanGaps: true,
-        pointRadius: 4,
+        tension: 0.3, fill: false, spanGaps: true, pointRadius: 4,
       }))
     );
 
-    // --- Hot deal pct by window ---
     if (d.windows && d.windows.length) {
       const wins = [...new Set(d.windows.map(r => r.window))];
       buildChart('chart-hotdeal', 'bar', wins,
@@ -510,7 +763,6 @@ async function loadTrends() {
       );
     }
 
-    // --- 14-day daily trend ---
     if (d.daily && d.daily.length) {
       const dates = [...new Set(d.daily.map(r => r.fetch_date))].sort();
       buildChart('chart-daily', 'line', dates,
@@ -526,7 +778,6 @@ async function loadTrends() {
       );
     }
 
-    // --- Best booking windows ---
     if (d.windows && d.windows.length) {
       const wins = [...new Set(d.windows.map(r => r.window))];
       buildChart('chart-windows', 'bar', wins,
@@ -541,11 +792,10 @@ async function loadTrends() {
       );
     }
 
-    // --- Heatmap ---
     renderHeatmap(d.heatmap, courses);
 
-    document.getElementById('trends-loading').style.display  = 'none';
-    document.getElementById('trends-content').style.display  = 'block';
+    document.getElementById('trends-loading').style.display = 'none';
+    document.getElementById('trends-content').style.display = 'block';
 
   } catch(e) {
     document.getElementById('trends-loading').style.display = 'none';
@@ -561,14 +811,12 @@ function renderHeatmap(heatmap, courses) {
   const BLOCKS = ['Morning (6-11)','Midday (11-2)','Afternoon (2-4)','Twilight (4-6)','Evening (6+)'];
   const area   = document.getElementById('heatmap-area');
 
-  // Compute global min/max for color scaling
   const prices = heatmap.map(r => r.avg_price).filter(Boolean);
   const lo = Math.min(...prices), hi = Math.max(...prices);
 
   function priceColor(p) {
     if (!p) return '#1a1d27';
     const t = (p - lo) / (hi - lo + 0.001);
-    // green (cheap) → yellow → red (expensive)
     const r = Math.round(t > 0.5 ? 255 : t * 2 * 255);
     const g = Math.round(t > 0.5 ? (1 - (t-0.5)*2) * 255 : 255);
     return `rgb(${r},${g},60)`;
@@ -581,16 +829,14 @@ function renderHeatmap(heatmap, courses) {
       <div class="heatmap-wrap">
       <div class="heatmap-grid" style="grid-template-columns: 140px repeat(${DAYS.length}, 80px)">`;
 
-    // Header row
     html += '<div class="hm-cell hm-header"></div>';
     DAYS.forEach(d => { html += `<div class="hm-cell hm-header">${d}</div>`; });
 
-    // Data rows
     BLOCKS.forEach(block => {
       html += `<div class="hm-cell hm-header" style="font-size:0.65rem;width:140px;text-align:right;padding-right:8px">${block}</div>`;
       DAYS.forEach((day, di) => {
-        const r = rows.find(x => x.dow === di && x.time_block === block);
-        const bg  = priceColor(r?.avg_price);
+        const r  = rows.find(x => x.dow === di && x.time_block === block);
+        const bg = priceColor(r?.avg_price);
         const txt = r ? `$${r.avg_price}` : '—';
         const fc  = r && r.avg_price > (lo + (hi-lo)*0.6) ? '#fff' : '#111';
         html += `<div class="hm-cell" style="background:${bg};color:${fc}" title="${r?.observations ?? 0} obs">${txt}</div>`;
@@ -611,10 +857,9 @@ async function loadHealth() {
     const d = await fetch('/api/health').then(r => r.json());
     if (d.error) throw new Error(d.error);
 
-    // Stats row
-    const lastRun   = d.github_runs?.[0];
-    const isOK      = lastRun?.conclusion === 'success';
-    const syncOK    = !d.sync_error;
+    const lastRun = d.github_runs?.[0];
+    const isOK    = lastRun?.conclusion === 'success';
+    const syncOK  = !d.sync_error;
 
     document.getElementById('health-stats').innerHTML = `
       <div class="stat-card">
@@ -622,24 +867,23 @@ async function loadHealth() {
         <div class="value ${isOK ? 'green' : 'red'}">${isOK ? '✓ OK' : '✗ Down'}</div>
       </div>
       <div class="stat-card">
-        <div class="label">Last Run</div>
+        <div class="label">Last Scrape</div>
         <div class="value blue">${lastRun ? fmtRelTime(lastRun.updated_at || lastRun.created_at) : '—'}</div>
       </div>
       <div class="stat-card">
-        <div class="label">Last Sync</div>
+        <div class="label">DB Written</div>
         <div class="value ${syncOK ? 'green' : 'red'}">${d.last_sync_at ? fmtRelTime(d.last_sync_at) : '—'}</div>
       </div>
       <div class="stat-card">
-        <div class="label">Sync Rows</div>
+        <div class="label">Rows Processed</div>
         <div class="value blue">${d.last_sync_rows?.toLocaleString() ?? '—'}</div>
       </div>
       <div class="stat-card">
-        <div class="label">New This Sync</div>
+        <div class="label">New Tee Times</div>
         <div class="value yellow">+${d.last_sync_new ?? '—'}</div>
       </div>
     `;
 
-    // Runs list
     const runList = document.getElementById('run-list');
     runList.innerHTML = (d.github_runs ?? []).map(r => {
       const cls = r.conclusion === 'success' ? 'success'
@@ -652,17 +896,16 @@ async function loadHealth() {
       </div>`;
     }).join('') || '<div style="padding:1rem;color:#718096">No runs found</div>';
 
-    // DB stats
     const db = d.db ?? {};
     document.getElementById('db-stats').innerHTML = `
-      <div class="stat-card"><div class="label">Total Observations</div><div class="value blue">${(db.total_rows ?? 0).toLocaleString()}</div></div>
-      <div class="stat-card"><div class="label">Hot Deals Seen</div><div class="value red">${(db.hot_deals ?? 0).toLocaleString()}</div></div>
-      <div class="stat-card"><div class="label">First Fetch</div><div class="value" style="font-size:0.9rem">${db.first_fetch ? new Date(db.first_fetch).toLocaleDateString() : '—'}</div></div>
-      <div class="stat-card"><div class="label">Latest Fetch</div><div class="value" style="font-size:0.9rem">${db.last_fetch ? fmtRelTime(db.last_fetch) : '—'}</div></div>
+      <div class="stat-card"><div class="label">Tee Times Stored</div><div class="value blue">${(db.total_rows ?? 0).toLocaleString()}</div></div>
+      <div class="stat-card"><div class="label">Hot Deals Tracked</div><div class="value red">${(db.hot_deals ?? 0).toLocaleString()}</div></div>
+      <div class="stat-card"><div class="label">Tracking Since</div><div class="value" style="font-size:0.9rem">${db.first_fetch ? new Date(db.first_fetch).toLocaleDateString() : '—'}</div></div>
+      <div class="stat-card"><div class="label">Data Through</div><div class="value" style="font-size:0.9rem">${db.last_fetch ? fmtRelTime(db.last_fetch) : '—'}</div></div>
     `;
 
-    document.getElementById('health-loading').style.display  = 'none';
-    document.getElementById('health-content').style.display  = 'block';
+    document.getElementById('health-loading').style.display = 'none';
+    document.getElementById('health-content').style.display = 'block';
 
   } catch(e) {
     document.getElementById('health-loading').style.display = 'none';
@@ -672,14 +915,282 @@ async function loadHealth() {
   }
 }
 
-// ─── Boot ──────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MAP
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Monitored course IDs → facility IDs on TeeItUp
+const MONITORED = {
+  1315: 'Tierra Verde Golf Club',
+  1319: 'Texas Rangers Golf Club',
+  4992: 'Lake Arlington Golf Course',
+  846:  'Tangle Ridge Golf Club',
+  1307: 'Pecan Hollow Golf Course',
+  9413: 'Firewheel Golf Park — Bridges Course',
+  9415: 'Firewheel Golf Park — Old Course',
+  9414: 'Firewheel Golf Park — Lakes Course',
+  48:   'Waterchase Golf Club',
+  3184: 'Mesquite Golf Club',
+  3186: 'Irving Golf Club',
+  1311: 'Prairie Lakes Golf Course',
+  1280: 'Golf Club at Champions Circle',
+  1391: 'Tour 18 Golf Course',
+  3793: 'Wildhorse Golf Club at Robson Ranch',
+  6335: 'Cleburne Golf Links'
+};
+
+// TeeItUp booking alias per course ID (matches config.json)
+const COURSE_ALIASES = {
+  1315: 'city-of-arlington',
+  1319: 'city-of-arlington',
+  4992: 'city-of-arlington',
+  846:  'tangle-ridge-golf-club',
+  1307: 'pecan-hollow-golf-course',
+  9413: 'firewheel-golf-park-v2',
+  9415: 'firewheel-golf-park-v2',
+  9414: 'firewheel-golf-park-v2',
+  48:   'waterchase-golf-club',
+  3184: 'mesquite-golf-club-2',
+  3186: 'irving-golf-club',
+  1311: 'prairie-lakes-golf-course',
+  1280: 'golf-club-at-champions-circle',
+  1391: 'tour-18-dallas',
+  3793: 'wildhorse-at-robson-ranch',
+  6335: 'cleburne-golf-links'
+};
+
+// All DFW courses: [name, type, city, lat, lon, dist_mi, within50, booking, software, golfnow_url, website, notes]
+const MAP_COURSES = [
+  ["Watters Creek Golf Course","Municipal","Allen",33.0961,-96.6741,23.2,true,"Yes","GolfNow","https://www.golfnow.com/courses/1036917-watters-creek-golf-course-details","https://www.watters-creek.com","33 holes (18+9+6); Allen TX; City managed"],
+  ["Lake Arlington Golf Course","Municipal","Arlington",32.722115,-97.182,22.8,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/4992-lake-arlington-golf-course-tx/search","https://www.arlingtongolf.com","18-hole par 71; Ralph Plummer design",4992],
+  ["Meadowbrook Park Golf Course","Municipal","Arlington",32.719173,-97.15133,15.8,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/4761-meadowbrook-park-golf-course-arlington/search","https://www.arlingtongolf.com/meadowbrook-park","9-hole par 33; oldest in Arlington (1924)"],
+  ["Texas Rangers Golf Club","Municipal","Arlington",32.775387,-97.101425,16.8,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/1319-texas-rangers-golf-club/search","https://www.arlingtongolf.com","World's only MLB-branded municipal course; GolfNow #1319",1319],
+  ["Tierra Verde Golf Club","Municipal","Arlington",32.631695,-97.183105,24.4,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/1315-tierra-verde-golf-club/search","https://www.arlingtongolf.com","18-hole par 72; Audubon Signature Sanctuary",1315],
+  ["Hidden Creek Golf Club","Municipal","Burleson",32.52845,-97.31187,32.0,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/9890-hidden-creek-golf-club/search","https://www.chronogolf.com/club/hidden-creek-golf-club-texas","City of Burleson"],
+  ["Indian Creek Golf Club — Creek Course","Municipal","Carrollton",33.00662,-96.89012,17.0,true,"Yes","TeeQuest","https://www.golfnow.com/tee-times/facility/7310-indian-creek-golf-club-creek/search","https://www.indiancreekgolfclub.com","18-hole par 72"],
+  ["Indian Creek Golf Club — Lakes Course","Municipal","Carrollton",33.00662,-96.89012,17.0,true,"Yes","TeeQuest","https://www.golfnow.com/tee-times/facility/1617-indian-creek-golf-club-lakes/search","https://www.indiancreekgolfclub.com",""],
+  ["Cedar Crest Golf Course","Municipal","Dallas",32.7246,-96.7952,3.6,true,"Yes","Chronogolf","https://www.golfnow.com/courses/1036884-cedar-crest-golf-course-details","https://www.golfcedarcrest.com","A.W. Tillinghast design; 1927 PGA Championship"],
+  ["Keeton Park Golf Course","Municipal","Dallas",32.7534,-96.7015,5.8,true,"Yes","Chronogolf","https://www.golfnow.com/courses/1037008-keeton-park-golf-course-details","https://www.keetonpark.com","18-hole par 72"],
+  ["Luna Vista Golf Course","Municipal","Dallas",32.88872,-96.92279,10.6,true,"Yes","Own site","https://www.golfnow.com/tee-times/facility/18087-luna-vista-golf-course/search","https://www.lunavistagolf.com","Renovated 2012; 18-hole par 72"],
+  ["Stevens Park Golf Course","Municipal","Dallas",32.7565,-96.8466,3.2,true,"Yes","Chronogolf","https://www.golfnow.com/courses/1037314-stevens-park-golf-course-details","https://www.stevensparkgolf.com","Opened 1924; 18-hole par 70"],
+  ["Tenison Park Glen","Municipal","Dallas",32.795643,-96.73683,3.8,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/18243-tenison-park-golf-course-tenison-glen-course/search","https://www.tenisonpark.com","Dallas's oldest muni (1924); 6,638 yds"],
+  ["Tenison Park Highlands","Municipal","Dallas",32.795643,-96.73683,3.8,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/18200-tenison-park-golf-course-tenison-highlands-course/search","https://www.tenisonpark.com","7,078 yds; D.A. Weibring redesign 2001"],
+  ["Texas Star Golf Course","Municipal","Euless",32.8199,-97.1145,18.7,true,"Yes","CPS Golf","https://www.golfnow.com/tee-times/facility/3782-texas-star-golf-course/search","https://www.texasstargolf.com","City of Euless"],
+  ["Meadowbrook Golf Course","Municipal","Fort Worth",32.75115,-97.20863,26.0,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/4978-meadowbrook-golf-course/search","https://www.fortworthgolf.org/golf/meadowbrook","REOPENED Oct 2025 after $13M renovation"],
+  ["Pecan Valley Hills Course","Municipal","Fort Worth",32.67199,-97.43231,38.6,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/4977-pecan-valley-municipal-golf-course/search","https://www.fortworthgolf.org/golf/pecan-valley","18-hole par 72"],
+  ["Rockwood Golf Course","Municipal","Fort Worth",32.774963,-97.36693,33.2,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/4443-rockwood-municipal-golf-club/search","https://www.fortworthgolf.org/golf/rockwood-park","Par 71; $5.1M renovation 2015"],
+  ["Firewheel Golf Park — Bridges Course","Municipal","Garland",32.972717,-96.62801,18.1,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/9413-the-bridges-course-firewheel-golf-park/search","https://www.golffirewheel.com","27-hole; opened 2001",9413],
+  ["Firewheel Golf Park — Lakes Course","Municipal","Garland",32.972717,-96.62801,16.9,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/9415-the-lakes-course-firewheel-golf-park/search","https://www.golffirewheel.com","18-hole par 72; 7,134 yds",9415],
+  ["Firewheel Golf Park — Old Course","Municipal","Garland",32.972717,-96.62801,16.9,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/9414-the-old-course-firewheel-golf-park/search","https://www.golffirewheel.com","18-hole par 72; 7,054 yds",9414],
+  ["Prairie Lakes Golf Course","Municipal","Grand Prairie",32.697758,-96.98399,12.0,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/1311-prairie-lakes-golf-course/search","https://www.prairielakesgolf.com","27-hole on Mountain Creek Lake",1311],
+  ["Tangle Ridge Golf Club","Municipal","Grand Prairie",32.566788,-97.01776,19.3,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/846-tangle-ridge-golf-club/search","https://www.tangleridge.com","18-hole par 72; Jeff Brauer design 1995",846],
+  ["Grapevine Golf Course","Municipal","Grapevine",32.97923,-97.05369,19.2,true,"Yes","ForeUp","https://www.golfnow.com/tee-times/facility/5996-grapevine-golf-course/search","https://grapevinegc.com","27-hole; #1 Texas under $40"],
+  ["Irving Golf Club","Municipal","Irving",32.799083,-96.917139,11.1,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/3186-irving-golf-club/search","https://www.irvingparks.com","Formerly Twin Wells Golf Course; 2000 E Shady Grove Rd, Irving TX 75060",3186],
+  ["Country View Golf Club","Municipal","Lancaster",32.5849,-96.7605,13.4,true,"Yes","TeeSnap","https://www.golfnow.com/tee-times/facility/4459-country-view-golf-club/search","https://countryviewgolfcourse.com","18-hole par 72; Ron Garl design 1989"],
+  ["Lake Park Golf Club — 18-Hole","Municipal","Lewisville",33.0724,-97.0016,23.6,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/7305-lake-park-18-golf-club/search","https://lakeparkgc.com","Par-70; Jeffrey Brauer design 1996"],
+  ["Oak Hollow Golf Course","Municipal","McKinney",33.21165,-96.622731,29.4,true,"Yes","Chronogolf","","https://www.mckinneytexas.org/1085/Oak-Hollow-Golf-Course","Reopened Oct 2023 after renovation; 3005 N McDonald St, McKinney TX 75071"],
+  ["Mesquite Golf Club","Municipal","Mesquite",32.774637,-96.597261,12.1,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/3184-mesquite-golf-club/search","https://www.mesquiteparks.com","City of Mesquite; 825 N Hwy 67",3184],
+  ["Iron Horse Golf Course","Municipal","North Richland Hills",32.835,-97.2532,26.8,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/7304-iron-horse-golf-course/search","https://ironhorsetx.com","18-hole par 70; $3M renovation 2020"],
+  ["Pecan Hollow Golf Course","Municipal","Plano",33.01094,-96.64229,17.9,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/1307-pecan-hollow-golf-course/search","https://www.pecanhollowgc.com","18-hole par 71",1307],
+  ["Sherrill Park Golf Course — Course 1","Municipal","Richardson",32.98667,-96.68608,15.8,true,"Yes","EZLinks","https://www.golfnow.com/tee-times/facility/1290-sherrill-park-golf-course-course-one/search","https://www.sherrillparkgolf.com","Top-10 muni in Texas"],
+  ["Sherrill Park Golf Course — Course 2","Municipal","Richardson",32.992397,-96.682106,15.8,true,"Yes","EZLinks","https://www.golfnow.com/tee-times/facility/7143-sherrill-park-golf-course-course-two/search","https://www.sherrillparkgolf.com",""],
+  ["Stewart Peninsula Golf Course","Municipal","The Colony",33.0891,-96.9198,22.7,true,"Yes","GolfNow","https://www.golfnow.com/tee-times/facility/41-stewart-peninsula-golf-course/search","https://www.stewartpeninsulagolf.com","9-hole par 33; Lake Lewisville"],
+  ["Hawks Creek Golf Club","Municipal","Westworth Village",32.77932,-97.39188,36.8,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/4122-hawks-creek/search","https://www.hawkscreek.com","18-hole par 72; opened 2002"],
+  ["Twin Creeks Golf Club","Public","Allen",33.1064,-96.7101,23.3,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/1416-the-golf-club-at-twin-creeks/search","https://twincreeksgolf.com","Arnold Palmer Signature; 18-hole par 72"],
+  ["Cross Timbers Golf Course","Public","Azle",32.91,-97.55724,44.5,true,"Yes","TeeSnap","https://www.golfnow.com/tee-times/facility/7125-cross-timbers-golf-course/search","https://www.crosstimbersgc.com","Jeffrey Brauer design 1995; 18-hole par 72"],
+  ["Coyote Ridge Golf Club","Public","Carrollton",33.0242,-96.9385,19.0,true,"Yes","ForeTee","https://www.golfnow.com/tee-times/facility/1261-coyote-ridge-golf-club/search","https://www.coyoteridgegolfclub.com","George B. Williams design 1999"],
+  ["Bear Creek Golf Club — East","Public","Dallas",32.86466,-97.056114,15.9,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/1491-bear-creek-golf-club-east-course/search","https://bearcreek-golf.com","Arcis Golf; Ted Robinson design"],
+  ["Bear Creek Golf Club — West","Public","Dallas",32.86466,-97.056114,15.9,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/6374-bear-creek-golf-club-west-course/search","https://bearcreek-golf.com","Arcis Golf; Ted Robinson design"],
+  ["Bridlewood Golf Club","Public","Flower Mound",33.033405,-97.06766,25.3,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/7493-bridlewood-golf-club/search","https://www.bridlewoodgolf.com","D.A. Weibring design 1997; fully public 2026"],
+  ["Tour 18 Golf Course","Public","Flower Mound",33.0594,-97.1662,29.0,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/1391-tour-18-dallas-golf-course/search","https://www.tour18-dallas.com","18-hole replica holes; par 72",1391],
+  ["Golf Club at Champions Circle","Public","Fort Worth",33.022064,-97.2962,33.1,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/1280-golf-club-at-champions-circle/search","https://www.championscirclegolf.com","Greg Norman design 2000; 18-hole",1280],
+  ["Golf Club at Fossil Creek","Public","Fort Worth",32.85857,-97.29037,30.3,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/7312-the-golf-club-at-fossil-creek/search","https://thegolfclubatfossilcreek.com","Arnold Palmer design 1987"],
+  ["Waterchase Golf Club","Public","Fort Worth",32.766598,-97.15764,22.8,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/48-waterchase-golf-club/search","https://www.waterchasegc.com","18-hole par 72",48],
+  ["Frisco Lakes Golf Club","Public","Frisco",33.14716,-96.91401,25.9,true,"Yes","ForeTee","https://www.golfnow.com/tee-times/facility/4631-frisco-lakes-golf-club/search","https://www.friscolakesgc.com","18-hole par 72; Gary Stephenson design 2008"],
+  ["PGA Frisco — Fields Ranch East","Public","Frisco",33.1598,-96.8207,26.5,true,"Yes","Proprietary","","https://www.pgafrisco.com","Gil Hanse design; walking only; ~$277/round"],
+  ["PGA Frisco — Fields Ranch West","Public","Frisco",33.1598,-96.8207,26.5,true,"Yes","Proprietary","","https://www.pgafrisco.com","Beau Welling design; ~$222/round"],
+  ["Cowboys Golf Club","Public","Grapevine",32.931355,-97.09558,19.4,true,"Yes","Quick18","https://www.golfnow.com/tee-times/facility/7307-cowboys-golf-club/search","https://cowboysgolfclub.com","World's only NFL-themed course; 18-hole par 72"],
+  ["Riverside Golf Club","Public","Grand Prairie",32.79895,-97.0582,13.4,true,"Yes","Custom","https://www.golfnow.com/tee-times/facility/31-riverside-golf-club-dallas/search","https://www.playriversidetx.com","Roger Packard design 1984; 18-hole par 72"],
+  ["Sky Creek Ranch Golf Club","Public","Keller",32.9235,-97.2094,26.0,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/14613-sky-creek-ranch-golf-club/search","https://www.skycreekranch.com","Robert Trent Jones Jr. design 1999"],
+  ["Mansfield National Golf Club","Public","Mansfield",32.556509,-97.078302,22.2,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/7313-mansfield-national-golf-club/search","https://mansfield-national.com","Arcis Golf; 3750 National Pkwy, Mansfield TX 76063"],
+  ["Waxahachie Golf Club","Public","Waxahachie",32.408802,-96.86818,25.6,true,"Yes","GolfNow","https://www.golfnow.com/tee-times/facility/17738-waxahachie-golf-club/search","https://www.waxahachiegolfclub.com","18-hole par 70"],
+  ["Golf Club of Dallas","Semi-Private","Dallas",32.6544,-96.84294,8.0,true,"Yes","Purpose Golf","https://www.golfnow.com/tee-times/facility/7818-the-golf-club-of-dallas/search","https://www.golfclubdallas.com","Perry Maxwell design; hosted PGA Tour Dallas Open 1958-67"],
+  ["Wildhorse Golf Club at Robson Ranch","Semi-Private","Denton",33.13869,-97.243546,35.6,true,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/3793-wildhorse-golf-club-at-robson-ranch-tx/search","https://www.robsonranchgolfclub.com","27-hole; 55+ community but open to public",3793],
+  ["Grand Oaks Golf Club","Semi-Private","Grand Prairie",32.68931,-96.99388,13.6,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/1945-grand-oaks-golf-club/search","https://www.grandoaksgc.com","Don January design 1972; 18-hole par 71"],
+  ["Kings Creek Country Club","Semi-Private","Kemp",32.36604,-96.28668,40.8,true,"Yes","TeeSnap","https://www.golfnow.com/tee-times/facility/4793-kings-creek-country-club/search","https://playkingscreek.com","18-hole par 71; semi-private open to public"],
+  ["The Tribute Golf Club","Semi-Private","The Colony",33.100746,-96.92688,25.4,true,"Yes","Chronogolf","https://www.golfnow.com/tee-times/facility/78-tribute-golf-links/search","https://www.tributegolf.com","Non-members book up to 7 days advance"],
+  ["Canyon West Golf Course","Public","Weatherford",32.7056,-97.9061,64.5,false,"Yes","Lightspeed","","https://canyonwestgolf.com","Par 72; owned by Weatherford College; Parker County foothills; 160 Club House Dr"],
+  ["Sugar Tree Golf Club","Public","Lipan",32.612647,-97.934066,66.7,false,"Yes","foreUP","","https://sugartreegolf.com","Phil Lumsden design 1988; par 72; 251 SugarTree Dr, Lipan TX 76462"],
+  ["Squaw Valley Golf Course","Public","Glen Rose",32.2577587,-97.7252042,64.5,false,"Yes","Custom","","https://squawvalleygc.com","Par 72; Glen Rose TX; scenic Somervell County course"],
+  ["Whitestone Golf Club","Public","Benbrook",32.653815,-97.496936,35.2,true,"Yes","Custom","","https://www.whitestonegolf.com","18-hole; 10650 Hwy 377 S, Benbrook TX 76126; (817) 249-9996"],
+  ["Southern Oaks Golf Club","Semi-Private","Burleson",32.555824,-97.292540,29.8,true,"Yes","Custom","","https://www.southernoaksgolf.com","18-hole; 13765 Southern Oaks Dr, Burleson TX 76028; (817) 426-2400"],
+  ["Thorntree Golf Club","Semi-Private","DeSoto",32.619361,-96.878194,17.3,true,"Yes","Custom","","https://www.thorntreecc.com","18-hole; 825 W Wintergreen Rd, DeSoto TX 75115; (972) 296-7317"],
+  ["Cleburne Golf Links","Municipal","Cleburne",32.3468,-97.3834,45.2,false,"Yes","TeeItUp","https://www.golfnow.com/tee-times/facility/6335-cleburne-golf-links/search","https://www.cityofcleburne.net","18-hole municipal course; City of Cleburne",6335],
+  ["Squaw Creek Golf Course","Municipal","Willow Park",32.753167,-97.643278,43.4,true,"Yes","Custom","","","18-hole; Willow Park TX 76087 (Parker County)"]
+];
+
+const TYPE_COLOR = { Municipal: '#63b3ed', Public: '#68d391', 'Semi-Private': '#f6ad55' };
+const TYPE_CSS   = { Municipal: 'muni', Public: 'pub', 'Semi-Private': 'semi' };
+
+let mapMarkers    = [];
+let mapFilterType = 'All';
+
+function makeIcon(type, isMonitored) {
+  if (isMonitored) {
+    return L.divIcon({
+      className: '',
+      html: `<span class="mon-marker"><svg width="28" height="28" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="14" cy="14" r="12" fill="#68d391" fill-opacity="0.25" stroke="#68d391" stroke-width="1"/>
+        <circle cx="14" cy="14" r="7"  fill="#68d391" stroke="white" stroke-width="1.5"/>
+        <text x="14" y="18" text-anchor="middle" font-size="9" fill="white" font-weight="bold">⛳</text>
+      </svg></span>`,
+      iconSize: [28,28], iconAnchor: [14,14], popupAnchor: [0,-16]
+    });
+  }
+  const color = TYPE_COLOR[type] || '#888';
+  return L.divIcon({
+    className: '',
+    html: `<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="9" cy="9" r="7" fill="${color}" fill-opacity="0.85" stroke="rgba(255,255,255,0.4)" stroke-width="1.2"/>
+    </svg>`,
+    iconSize: [18,18], iconAnchor: [9,9], popupAnchor: [0,-12]
+  });
+}
+
+function getMonitoredPopupContent(courseId, courseName) {
+  const today  = new Date().toISOString().slice(0,10);
+  const rows   = allRows.filter(r => r.course_id === courseId);
+  const future = rows.filter(r => r.tee_date >= today).sort((a,b) => a.price - b.price);
+  const hotRow = future.find(r => r.is_hot_deal);
+  const cheapest = future[0];
+  const alias = COURSE_ALIASES[courseId] || 'city-of-arlington';
+  const bUrl   = _date => `https://${alias}.book.teeitup.golf`;
+
+  let priceHtml = '<div class="mp-body"><div class="r"><span class="l">Live data</span><span class="v" style="color:#718096">Load dashboard first</span></div></div>';
+  if (rows.length > 0) {
+    priceHtml = '<div class="mp-body">';
+    if (cheapest) {
+      priceHtml += `<div class="r"><span class="l">Cheapest</span><span class="v"><strong>$${cheapest.price?.toFixed(2)}</strong> &mdash; ${fmtDate(cheapest.tee_date)} ${fmtTime(cheapest.tee_time)}</span></div>`;
+    }
+    if (hotRow) {
+      priceHtml += `<div class="r"><span class="l">Hot Deal</span><span class="v lp-hot">🔥 $${hotRow.price?.toFixed(2)} &mdash; ${fmtDate(hotRow.tee_date)} ${fmtTime(hotRow.tee_time)}</span></div>`;
+    }
+    priceHtml += `<div class="r"><span class="l">Tracked</span><span class="v">${rows.length} observations</span></div>`;
+    priceHtml += '</div>';
+    priceHtml += `<div class="mp-foot"><a href="${bUrl(today)}" class="mp-book-btn" target="_blank" rel="noopener">Book Today's Tee Times ↗</a></div>`;
+  }
+
+  return `<div class="leaflet-popup-content">
+    <div class="mp-header monitored">⛳ ${courseName} <span style="font-size:10px;opacity:0.8">(Monitored)</span></div>
+    ${priceHtml}
+  </div>`;
+}
+
+function buildPopup(c) {
+  const [name, type, city,,, dist,,, software, gnUrl, siteUrl, notes, courseId] = c;
+  const typeClass = TYPE_CSS[type] || 'muni';
+  const gnLink    = gnUrl  ? `<a href="${gnUrl}"  target="_blank" rel="noopener">GolfNow</a>` : 'N/A';
+  const siteLink  = siteUrl ? ` &middot; <a href="${siteUrl}" target="_blank" rel="noopener">Website</a>` : '';
+  return `<div class="leaflet-popup-content">
+    <div class="mp-header ${typeClass}">${name}</div>
+    <div class="mp-body">
+      <div class="r"><span class="l">Location</span><span class="v">${city}, TX &middot; ${dist}mi</span></div>
+      <div class="r"><span class="l">Type</span><span class="v">${type}</span></div>
+      ${software ? `<div class="r"><span class="l">Software</span><span class="v">${software}</span></div>` : ''}
+      <div class="r"><span class="l">Links</span><span class="v">${gnLink}${siteLink}</span></div>
+      ${notes ? `<div class="r"><span class="l">Notes</span><span class="v" style="color:#a0aec0">${notes}</span></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function mapFilter(type, btn) {
+  mapFilterType = type;
+  document.querySelectorAll('.map-filter-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  let shown = 0;
+  mapMarkers.forEach(m => {
+    const show = type === 'All' || m._type === type;
+    if (show) { if (!window._leafletMap.hasLayer(m)) m.addTo(window._leafletMap); shown++; }
+    else       { if ( window._leafletMap.hasLayer(m)) window._leafletMap.removeLayer(m); }
+  });
+  document.getElementById('map-count').textContent = `${shown} courses`;
+}
+
+function updateMapLivePanel() {
+  if (!allRows.length) return;
+  const today = new Date().toISOString().slice(0,10);
+  let html = '';
+  for (const [cid, cname] of Object.entries(MONITORED)) {
+    const id     = parseInt(cid);
+    const rows   = allRows.filter(r => r.course_id === id && r.tee_date >= today);
+    const sorted = rows.sort((a,b) => a.price - b.price);
+    const cheap  = sorted[0];
+    const hot    = rows.find(r => r.is_hot_deal);
+    const alias = COURSE_ALIASES[parseInt(cid)] || 'city-of-arlington';
+    const burl   = `https://${alias}.book.teeitup.golf`;
+    html += `<div class="mlp-course">
+      <div class="mlp-name">${cname}</div>`;
+    if (cheap) {
+      html += `<div class="mlp-row">Cheapest: <strong>$${cheap.price?.toFixed(2)}</strong> ${fmtTime(cheap.tee_time)} ${fmtDate(cheap.tee_date)}</div>`;
+    }
+    if (hot) {
+      html += `<div class="mlp-row"><span class="mlp-hot">🔥 $${hot.price?.toFixed(2)}</span> ${fmtTime(hot.tee_time)} ${fmtDate(hot.tee_date)}</div>`;
+    }
+    if (!cheap && !hot) {
+      html += `<div class="mlp-row" style="color:#718096">No upcoming data</div>`;
+    }
+    html += `<div class="mlp-row"><a href="${burl}" target="_blank" rel="noopener">Book today ↗</a></div>`;
+    html += `</div>`;
+  }
+  document.getElementById('map-live-body').innerHTML = html || '<span style="color:#718096">No data yet</span>';
+}
+
+function loadMap() {
+  loaded.map = true;
+
+  const lmap = L.map('leaflet-map', { zoomControl: true }).setView([32.75, -97.12], 11);
+  window._leafletMap = lmap;
+
+  // Dark tile layer
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(lmap);
+
+
+  // Place all course markers
+  MAP_COURSES.forEach(c => {
+    const [name, type, city, lat, lon,,, , , , , , courseId] = c;
+    const isMonitored = !!courseId;
+    const m = L.marker([lat, lon], { icon: makeIcon(type, isMonitored), zIndexOffset: isMonitored ? 1000 : 0 });
+
+    if (isMonitored) {
+      m.bindPopup(() => getMonitoredPopupContent(courseId, name), { maxWidth: 300 });
+    } else {
+      m.bindPopup(buildPopup(c), { maxWidth: 300 });
+    }
+    m.bindTooltip(`<b>${name}</b><br>${city} &middot; ${type}`, { direction: 'top', offset: [0,-10] });
+    m._type = type;
+    m._isMonitored = isMonitored;
+    m.addTo(lmap);
+    mapMarkers.push(m);
+  });
+
+  // Initial count
+  document.getElementById('map-count').textContent = `${mapMarkers.length} courses`;
+
+  // Live panel
+  updateMapLivePanel();
+}
+
+// ─── Boot ────────────────────────────────────────────────────────────────────
 loadDashboard();
 setInterval(() => {
   loaded[currentTab] = false;
   if (currentTab === 'dashboard') loadDashboard();
   if (currentTab === 'trends')    loadTrends();
   if (currentTab === 'health')    loadHealth();
-}, 5 * 60 * 1000);  // auto-refresh every 5 min
+}, 5 * 60 * 1000);
 </script>
 </body>
 </html>
