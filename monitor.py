@@ -1,5 +1,5 @@
 """
-monitor.py — Main polling script for the Arlington TX tee-time monitor.
+monitor.py — Main polling script for the DFW golf tee-time monitor.
 
 Run:
     python monitor.py                    # uses config.json in same directory
