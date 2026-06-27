@@ -24,8 +24,9 @@ from db import get_last_alerted_price, record_alert_sent
 
 logger = logging.getLogger(__name__)
 
-# Booking URL pattern — takes the user directly to the right course + date
-BOOKING_URL = "https://city-of-arlington.book.teeitup.com/teetimes?course={course_id}&date={date}"
+# Booking URL — takes the user to the course's TeeItUp booking page.
+# {alias} is the x-be-alias from config.json (e.g. "tangle-ridge-golf-club").
+BOOKING_URL = "https://{alias}.book.teeitup.golf"
 
 # Discord embed colors (decimal)
 COLORS = {
@@ -50,6 +51,7 @@ def send_alert(
     alert_type: str,     # 'hot_deal', 'threshold', or 'below_average'
     reason: str,         # human-readable reason string
     config: dict,
+    booking_alias: str = "city-of-arlington",   # TeeItUp x-be-alias for this course
 ) -> bool:
     """
     Fire alerts for a deal tee time.  Returns True if at least one
@@ -76,7 +78,7 @@ def send_alert(
                 course_name, tee_date, tee_time, last_price, price,
             )
 
-    booking_url = BOOKING_URL.format(course_id=course_id, date=tee_date)
+    booking_url = BOOKING_URL.format(alias=booking_alias)
 
     embed = _build_embed(
         course_name=course_name,
