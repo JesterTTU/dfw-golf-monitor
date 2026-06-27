@@ -1,5 +1,5 @@
 {
-  "discord_webhook_url": "https://discord.com/api/webhooks/1519554853456838738/27ug6g7MyA4kG_7SIVPLgfG0hA8RQJ9jTQNPhWrPe374Ealf32J7MeTsZtobqe4IY0b9",
+  "discord_webhook_url": "YOUR_DISCORD_WEBHOOK_URL_HERE",
   "courses": [
     {
       "id": 1315,
@@ -108,5 +108,5 @@
   "alert_below_average_pct": 20,
   "hot_deal_pct": 25,
   "poll_days_ahead": 7,
-  "discord_webhook_hot_deals_url": "https://discord.com/api/webhooks/1520517700630220923/hiVa6paMXqK6tg-5_3JMSt7bi9E8BSiRQM122SF4zPv4vOwwvgdCImevGoD2VzrWSaoO"
+  "discord_webhook_hot_deals_url": "YOUR_DISCORD_WEBHOOK_URL_HERE"
 }
