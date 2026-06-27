@@ -86,7 +86,7 @@ KENNA_BASE      = "https://phx-api-be-east-1b.kenna.io"
 TEEITUP_API     = f"{KENNA_BASE}/v2/tee-times"
 DEFAULT_BE_ALIAS = "city-of-arlington"      # fallback x-be-alias header value
 
-# Arlington TX is Central Time
+# All DFW courses are in Central Time
 ARLINGTON_TZ = ZoneInfo("America/Chicago")
 
 # ---------------------------------------------------------------------------
@@ -126,7 +126,7 @@ def load_config(path: Optional[str] = None) -> dict:
 # ---------------------------------------------------------------------------
 
 def dates_to_fetch(days_ahead: int) -> list[str]:
-    """Return ISO date strings for today + the next N days (Arlington local date)."""
+    """Return ISO date strings for today + the next N days (Central time local date)."""
     today = datetime.now(ARLINGTON_TZ).date()
     return [(today + timedelta(days=i)).isoformat() for i in range(days_ahead)]
 
@@ -142,7 +142,7 @@ def is_friday(date_str: str) -> bool:
 
 def teetime_to_local_hhmm(teetime_utc: str) -> str:
     """
-    Convert a UTC ISO-8601 teetime string to local Arlington HH:MM.
+    Convert a UTC ISO-8601 teetime string to local Central time HH:MM.
     e.g. "2026-06-29T13:10:00.000Z" -> "08:10" (CDT = UTC-5)
     """
     try:
