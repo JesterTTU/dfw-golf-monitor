@@ -1,0 +1,30 @@
+{
+  "discord_webhook_url": "https://discord.com/api/webhooks/1519554853456838738/27ug6g7MyA4kG_7SIVPLgfG0hA8RQJ9jTQNPhWrPe374Ealf32J7MeTsZtobqe4IY0b9",
+  "courses": [
+    {
+      "id": 1315,
+      "name": "Tierra Verde",
+      "players": 2
+    },
+    {
+      "id": 1319,
+      "name": "Texas Rangers",
+      "players": 2
+    },
+    {
+      "id": 4992,
+      "name": "Lake Arlington",
+      "players": 2
+    }
+  ],
+  "alert_thresholds": {
+    "weekday": 65,
+    "friday": 80,
+    "weekend": 90,
+    "twilight_any": 50,
+    "super_twilight": 40
+  },
+  "alert_below_average_pct": 20,
+  "poll_days_ahead": 7,
+  "discord_webhook_hot_deals_url": "https://discord.com/api/webhooks/1520517700630220923/hiVa6paMXqK6tg-5_3JMSt7bi9E8BSiRQM122SF4zPv4vOwwvgdCImevGoD2VzrWSaoO"
+}
